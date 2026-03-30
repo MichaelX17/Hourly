@@ -2,10 +2,11 @@ import { BottomNav, BottomTab } from '@/components/BottomNav';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
-import { usePathname, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useFocusEffect, usePathname, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Animated,
+  RefreshControl,
   ScrollView,
   StatusBar,
   Text,
@@ -129,6 +130,7 @@ const getLast5DaySummaryFromWeeks = (weeks: WeekData[]): DaySummaryEntry[] => {
 
   weeks.forEach((week) => {
     week.dayEntries?.forEach((entry) => {
+      if (entry.hours <= 0) return;
       const total = dailyMap.get(entry.date) || 0;
       dailyMap.set(entry.date, total + entry.hours);
     });
@@ -401,6 +403,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<BottomTab>('today');
   const [weeks, setWeeks] = useState<WeekData[]>([]);
   const [daySummary, setDaySummary] = useState<DaySummaryEntry[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
@@ -409,24 +412,31 @@ export default function App() {
     }
   }, [pathname]);
 
-  useEffect(() => {
-    const loadWeeksFromStorage = async () => {
-      try {
-        const stored = await AsyncStorage.getItem('@hourly/weeks');
-        if (stored) {
-          const parsed: WeekData[] = JSON.parse(stored);
-          console.log('Loaded weeks:', parsed);
-          setWeeks(parsed);
-        } else {
-          console.log('No weeks stored');
-        }
-      } catch (error) {
-        console.warn('Unable to load weeks', error);
+  const loadWeeksFromStorage = useCallback(async () => {
+    try {
+      const stored = await AsyncStorage.getItem('@hourly/weeks');
+      if (stored) {
+        const parsed: WeekData[] = JSON.parse(stored);
+        setWeeks(parsed);
+      } else {
+        setWeeks([]);
       }
-    };
-
-    loadWeeksFromStorage();
+    } catch (error) {
+      console.warn('Unable to load weeks', error);
+    }
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadWeeksFromStorage();
+    }, [loadWeeksFromStorage])
+  );
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadWeeksFromStorage();
+    setRefreshing(false);
+  }, [loadWeeksFromStorage]);
 
   useEffect(() => {
     const summary = getLast5DaySummaryFromWeeks(weeks);
@@ -483,6 +493,9 @@ export default function App() {
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 80 + insets.bottom }]}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
       >
         {/* Daily Progress */}
         <DailyProgress />
