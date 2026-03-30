@@ -1,16 +1,18 @@
+import { BottomNav, BottomTab } from '@/components/BottomNav';
 import { MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect, useRef, useState } from 'react';
+import { usePathname, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import {
-    Animated,
-    Dimensions,
-    Image,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Dimensions,
+  Image,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -132,21 +134,130 @@ const timelineData: TimelineEntry[] = [
   },
 ];
 
-const totalHoursToday = 5.75; // 5h 45m
-const goalHours = 8.0;
+type DaySummaryEntry = {
+  id: string;
+  dayName: string;
+  workedHours: number;
+  workedLabel: string;
+  progressPercent: number;
+};
+
+type WeekData = {
+  id: string;
+  dateRange: string;
+  dayEntries?: { date: string; hours: number; }[];
+};
+
+const daySummaryData: DaySummaryEntry[] = [
+  { id: 'd1', dayName: 'Mon', workedHours: 7.2, workedLabel: '7h 12m', progressPercent: (7.2 / 8) * 100 },
+  { id: 'd2', dayName: 'Tue', workedHours: 8.0, workedLabel: '8h 00m', progressPercent: 100 },
+  { id: 'd3', dayName: 'Wed', workedHours: 6.5, workedLabel: '6h 30m', progressPercent: (6.5 / 8) * 100 },
+  { id: 'd4', dayName: 'Thu', workedHours: 7.0, workedLabel: '7h 00m', progressPercent: (7.0 / 8) * 100 },
+  { id: 'd5', dayName: 'Fri', workedHours: 8.0, workedLabel: '8h 00m', progressPercent: 100 },
+];
+
+const getShortDayName = (date: Date): string => {
+  return date.toLocaleDateString('en-US', { weekday: 'short' }).slice(0, 3);
+};
+
+const getLast5DaySummaryFromWeeks = (weeks: WeekData[]): DaySummaryEntry[] => {
+  const dailyMap = new Map<string, number>();
+
+  weeks.forEach((week) => {
+    week.dayEntries?.forEach((entry) => {
+      const total = dailyMap.get(entry.date) || 0;
+      dailyMap.set(entry.date, total + entry.hours);
+    });
+  });
+
+  if (dailyMap.size === 0) {
+    return [];
+  }
+
+  const sortedDates = Array.from(dailyMap.keys())
+    .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
+    .slice(0, 5);
+
+  return sortedDates.map((date) => {
+    const hours = dailyMap.get(date) || 0;
+    const d = new Date(date);
+    const dayName = getShortDayName(d);
+    const workedLabel = `${Math.floor(hours)}h ${Math.round((hours % 1) * 60)
+      .toString()
+      .padStart(2, '0')}m`;
+
+    return {
+      id: date,
+      dayName,
+      workedHours: hours,
+      workedLabel,
+      progressPercent: Math.min(100, Math.round((hours / 8) * 100)),
+    };
+  });
+};
 
 // ---------------------------------------------------------------------
 // 4. Componentes
 // ---------------------------------------------------------------------
 
-// ---- Barra superior fija ----
+const getDayProgress = () => {
+  const now = new Date();
+  const secondsSinceMidnight = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+  const totalDaySeconds = 24 * 3600;
+  const progressPercent = Math.min(100, Math.max(0, (secondsSinceMidnight / totalDaySeconds) * 100));
+  return {
+    now,
+    secondsSinceMidnight,
+    progressPercent,
+    elapsedHours: Math.floor(secondsSinceMidnight / 3600),
+    elapsedMinutes: Math.floor((secondsSinceMidnight % 3600) / 60),
+    elapsedSeconds: secondsSinceMidnight % 60,
+    remainingHours: 23 - Math.floor(secondsSinceMidnight / 3600),
+    remainingMinutes: 59 - Math.floor((secondsSinceMidnight % 3600) / 60),
+  };
+};
+
+// ---- Sección de progreso diario (avance del día en tiempo)
+const DailyProgress = () => {
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTick((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const { now, progressPercent, elapsedHours, elapsedMinutes, elapsedSeconds, remainingHours, remainingMinutes } = getDayProgress();
+  const formattedCurrentTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const formattedElapsed = `${elapsedHours.toString().padStart(2, '0')}h ${elapsedMinutes.toString().padStart(2, '0')}m`;
+  const formattedRemaining = `${remainingHours.toString().padStart(2, '0')}h ${remainingMinutes.toString().padStart(2, '0')}m`;
+
+  return (
+    <View style={styles.progressSection}>
+      <View>
+        <Text style={[styles.progressLabel, typography.label]}>DAY TIME PROGRESS</Text>
+        <View style={styles.progressHeader}>
+          <Text style={[styles.progressCurrent, typography.headline]}>{formattedCurrentTime}</Text>
+          <Text style={[styles.progressGoal, typography.label]}>{Math.round(progressPercent)}%</Text>
+        </View>
+      </View>
+      <Text style={[styles.progressSubText, typography.body]}>{`Elapsed: ${formattedElapsed} · Remaining: ${formattedRemaining}`}</Text>
+      <View style={styles.progressBarContainer}>
+        <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
+      </View>
+    </View>
+  );
+};
+
+// ---- Barra superior fija local ----
 const TopBar = ({ onMenuPress, onAvatarPress }: { onMenuPress: () => void; onAvatarPress: () => void }) => {
   const insets = useSafeAreaInsets();
   const currentDate = new Date();
   const formattedDate = currentDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
   return (
-    <View style={[styles.topBar, { paddingTop: insets.top || 16 }]}>
+    <View style={[styles.topBar, { paddingTop: insets.top || 16 }]}> 
       <View style={styles.topBarLeft}>
         <TouchableOpacity onPress={onMenuPress} style={styles.menuButton}>
           <MaterialIcons name="menu" size={24} color={Colors.primary} />
@@ -168,146 +279,140 @@ const TopBar = ({ onMenuPress, onAvatarPress }: { onMenuPress: () => void; onAva
   );
 };
 
-// ---- Sección de progreso diario ----
-const DailyProgress = ({ currentHours, goalHours }: { currentHours: number; goalHours: number }) => {
-  const progressPercent = (currentHours / goalHours) * 100;
-  const formattedCurrent = `${Math.floor(currentHours)}h ${Math.round((currentHours % 1) * 60)}m`;
-
-  return (
-    <View style={styles.progressSection}>
-      <View>
-        <Text style={[styles.progressLabel, typography.label]}>DAILY PROGRESS</Text>
-        <View style={styles.progressHeader}>
-          <Text style={[styles.progressCurrent, typography.headline]}>{formattedCurrent}</Text>
-          <Text style={[styles.progressGoal, typography.label]}>/ {goalHours}h 00m</Text>
-        </View>
-      </View>
-      <View style={styles.progressBarContainer}>
-        <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
-      </View>
-    </View>
-  );
-};
-
 // ---- Tarjeta de sesión activa con temporizador ----
-const ActiveSessionCard = () => {
-  const [seconds, setSeconds] = useState(1 * 3600 + 12 * 60 + 44); // 01:12:44
-  const [isRunning, setIsRunning] = useState(true);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+// const ActiveSessionCard = () => {
+//   const [seconds, setSeconds] = useState(1 * 3600 + 12 * 60 + 44); // 01:12:44
+//   const [isRunning, setIsRunning] = useState(true);
+//   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+//   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  useEffect(() => {
-    if (isRunning) {
-      intervalRef.current = setInterval(() => {
-        setSeconds((prev) => prev + 1);
-      }, 1000);
-    } else if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [isRunning]);
+//   useEffect(() => {
+//     if (isRunning) {
+//       intervalRef.current = setInterval(() => {
+//         setSeconds((prev) => prev + 1);
+//       }, 1000);
+//     } else if (intervalRef.current) {
+//       clearInterval(intervalRef.current);
+//     }
+//     return () => {
+//       if (intervalRef.current) clearInterval(intervalRef.current);
+//     };
+//   }, [isRunning]);
 
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 0.3,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  }, []);
+//   useEffect(() => {
+//     Animated.loop(
+//       Animated.sequence([
+//         Animated.timing(pulseAnim, {
+//           toValue: 0.3,
+//           duration: 1000,
+//           useNativeDriver: true,
+//         }),
+//         Animated.timing(pulseAnim, {
+//           toValue: 1,
+//           duration: 1000,
+//           useNativeDriver: true,
+//         }),
+//       ])
+//     ).start();
+//   }, []);
 
-  const formatTime = (totalSeconds: number) => {
-    const hrs = Math.floor(totalSeconds / 3600);
-    const mins = Math.floor((totalSeconds % 3600) / 60);
-    const secs = totalSeconds % 60;
-    return `${hrs.toString().padStart(2, '0')}:${mins
-      .toString()
-      .padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
+//   const formatTime = (totalSeconds: number) => {
+//     const hrs = Math.floor(totalSeconds / 3600);
+//     const mins = Math.floor((totalSeconds % 3600) / 60);
+//     const secs = totalSeconds % 60;
+//     return `${hrs.toString().padStart(2, '0')}:${mins
+//       .toString()
+//       .padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+//   };
 
-  const handleStop = () => {
-    setIsRunning(false);
-  };
+//   const handleStop = () => {
+//     setIsRunning(false);
+//   };
 
+//   return (
+//     <View style={styles.activeSessionCard}>
+//       <View style={styles.glassOverlay} />
+//       <View style={styles.cardContent}>
+//         <View style={styles.activeBadge}>
+//           <Animated.View style={[styles.pulseDot, { opacity: pulseAnim }]} />
+//           <View style={styles.staticDot} />
+//           <Text style={[styles.activeBadgeText, typography.label]}>Active Session</Text>
+//         </View>
+//         <Text style={[styles.sessionTitle, typography.headline]}>UI Design Refinement</Text>
+//         <Text style={[styles.sessionProject, typography.body]}>Chronos Mobile App • Internal</Text>
+//         <Text style={[styles.timerDisplay, typography.headline]}>{formatTime(seconds)}</Text>
+//         <TouchableOpacity style={styles.stopButton} onPress={handleStop}>
+//           <LinearGradient
+//             colors={[Colors.primary, Colors.primaryContainer]}
+//             start={{ x: 0, y: 0 }}
+//             end={{ x: 1, y: 1 }}
+//             style={styles.stopButtonGradient}
+//           >
+//             <MaterialIcons name="stop-circle" size={24} color={Colors.onPrimary} />
+//             <Text style={[styles.stopButtonText, typography.headline]}>Stop Session</Text>
+//           </LinearGradient>
+//         </TouchableOpacity>
+//       </View>
+//     </View>
+//   );
+// };
+
+// ---- Lista de últimos 5 días trabajados ----
+const DaySummaryItem = ({ entry }: { entry: DaySummaryEntry }) => {
   return (
-    <View style={styles.activeSessionCard}>
-      <View style={styles.glassOverlay} />
-      <View style={styles.cardContent}>
-        <View style={styles.activeBadge}>
-          <Animated.View style={[styles.pulseDot, { opacity: pulseAnim }]} />
-          <View style={styles.staticDot} />
-          <Text style={[styles.activeBadgeText, typography.label]}>Active Session</Text>
-        </View>
-        <Text style={[styles.sessionTitle, typography.headline]}>UI Design Refinement</Text>
-        <Text style={[styles.sessionProject, typography.body]}>Chronos Mobile App • Internal</Text>
-        <Text style={[styles.timerDisplay, typography.headline]}>{formatTime(seconds)}</Text>
-        <TouchableOpacity style={styles.stopButton} onPress={handleStop}>
-          <LinearGradient
-            colors={[Colors.primary, Colors.primaryContainer]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.stopButtonGradient}
-          >
-            <MaterialIcons name="stop-circle" size={24} color={Colors.onPrimary} />
-            <Text style={[styles.stopButtonText, typography.headline]}>Stop Session</Text>
-          </LinearGradient>
-        </TouchableOpacity>
+    <View style={styles.daySummaryRow}>
+      <View style={styles.daySummaryLeft}>
+        <Text style={[styles.daySummaryDay, typography.headline]}>{entry.dayName}</Text>
+        <Text style={[styles.daySummaryWorked, typography.body]}>{entry.workedLabel}</Text>
+      </View>
+      <View style={styles.daySummaryBarContainer}>
+        <View style={[styles.daySummaryBarFill, { width: `${Math.min(100, Math.max(0, entry.progressPercent))}%` }]} />
       </View>
     </View>
   );
 };
 
 // ---- Componente de entrada de línea de tiempo ----
-const TimelineEntryItem = ({ entry }: { entry: TimelineEntry }) => {
-  const getCategoryStyle = () => {
-    if (entry.categoryType === 'billable') {
-      return {
-        backgroundColor: `${Colors.tertiaryContainer}10`,
-        color: Colors.tertiary,
-      };
-    }
-    return {
-      backgroundColor: Colors.surfaceContainerHighest,
-      color: Colors.onSurfaceVariant,
-    };
-  };
+// const TimelineEntryItem = ({ entry }: { entry: TimelineEntry }) => {
+//   const getCategoryStyle = () => {
+//     if (entry.categoryType === 'billable') {
+//       return {
+//         backgroundColor: `${Colors.tertiaryContainer}10`,
+//         color: Colors.tertiary,
+//       };
+//     }
+//     return {
+//       backgroundColor: Colors.surfaceContainerHighest,
+//       color: Colors.onSurfaceVariant,
+//     };
+//   };
 
-  const categoryStyle = getCategoryStyle();
+//   const categoryStyle = getCategoryStyle();
 
-  return (
-    <TouchableOpacity style={styles.timelineItem} activeOpacity={0.7}>
-      <View style={styles.timelineLeft}>
-        <View style={[styles.timelineIconBg, { backgroundColor: `${entry.iconColor}10` }]}>
-          <MaterialIcons name={entry.icon as any} size={24} color={entry.iconColor} />
-        </View>
-        <View>
-          <Text style={[styles.timelineTitle, typography.headline]}>{entry.title}</Text>
-          <Text style={[styles.timelineTime, typography.body]}>
-            {entry.startTime} — {entry.endTime}
-          </Text>
-        </View>
-      </View>
-      <View style={styles.timelineRight}>
-        <Text style={[styles.timelineDuration, typography.headline]}>{entry.duration}</Text>
-        <View style={[styles.categoryBadge, { backgroundColor: categoryStyle.backgroundColor }]}>
-          <Text style={[styles.categoryText, typography.label, { color: categoryStyle.color }]}>
-            {entry.category}
-          </Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
-};
+//   return (
+//     <TouchableOpacity style={styles.timelineItem} activeOpacity={0.7}>
+//       <View style={styles.timelineLeft}>
+//         <View style={[styles.timelineIconBg, { backgroundColor: `${entry.iconColor}10` }]}>
+//           <MaterialIcons name={entry.icon as any} size={24} color={entry.iconColor} />
+//         </View>
+//         <View>
+//           <Text style={[styles.timelineTitle, typography.headline]}>{entry.title}</Text>
+//           <Text style={[styles.timelineTime, typography.body]}>
+//             {entry.startTime} — {entry.endTime}
+//           </Text>
+//         </View>
+//       </View>
+//       <View style={styles.timelineRight}>
+//         <Text style={[styles.timelineDuration, typography.headline]}>{entry.duration}</Text>
+//         <View style={[styles.categoryBadge, { backgroundColor: categoryStyle.backgroundColor }]}>
+//           <Text style={[styles.categoryText, typography.label, { color: categoryStyle.color }]}>
+//             {entry.category}
+//           </Text>
+//         </View>
+//       </View>
+//     </TouchableOpacity>
+//   );
+// };
 
 // ---- Botón de acción flotante (FAB) ----
 const FAB = ({ onPress }: { onPress: () => void }) => {
@@ -325,60 +430,58 @@ const FAB = ({ onPress }: { onPress: () => void }) => {
   );
 };
 
-// ---- Navegación inferior ----
-type Tab = 'today' | 'weekly' | 'stats' | 'settings';
-
-const BottomNav = ({
-  activeTab,
-  onTabPress,
-}: {
-  activeTab: Tab;
-  onTabPress: (tab: Tab) => void;
-}) => {
-  const insets = useSafeAreaInsets();
-
-  const navItems = [
-    { key: 'today', label: 'Today', icon: 'today', fill: true },
-    { key: 'weekly', label: 'Weekly', icon: 'calendar-view-week', fill: false },
-    { key: 'stats', label: 'Stats', icon: 'bar-chart', fill: false },
-    { key: 'settings', label: 'Settings', icon: 'settings', fill: false },
-  ] as const;
-
-  return (
-    <View style={[styles.bottomNav, { paddingBottom: insets.bottom || 12 }]}>
-      {navItems.map((item) => (
-        <TouchableOpacity
-          key={item.key}
-          style={[styles.navItem, activeTab === item.key && styles.navItemActive]}
-          onPress={() => onTabPress(item.key)}
-        >
-          <MaterialIcons
-            name={item.icon as any}
-            size={24}
-            color={activeTab === item.key ? Colors.primary : Colors.outline}
-          />
-          <Text style={[styles.navLabel, typography.label, activeTab === item.key && styles.navLabelActive]}>
-            {item.label}
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
-};
-
 // ---------------------------------------------------------------------
 // 5. Pantalla principal
 // ---------------------------------------------------------------------
 export default function App() {
-  const [activeTab, setActiveTab] = useState<Tab>('today');
+  const router = useRouter();
+  const pathname = usePathname();
+  const [activeTab, setActiveTab] = useState<BottomTab>('today');
+  const [weeks, setWeeks] = useState<WeekData[]>([]);
+  const [daySummary, setDaySummary] = useState<DaySummaryEntry[]>([]);
   const insets = useSafeAreaInsets();
 
-  const handleMenuPress = () => {
-    alert('Menu pressed');
+  useEffect(() => {
+    if (pathname === '/today') {
+      setActiveTab('today');
+    }
+  }, [pathname]);
+
+  useEffect(() => {
+    const loadWeeksFromStorage = async () => {
+      try {
+        const stored = await AsyncStorage.getItem('@hourly/weeks');
+        if (stored) {
+          const parsed: WeekData[] = JSON.parse(stored);
+          setWeeks(parsed);
+        }
+      } catch (error) {
+        console.warn('Unable to load weeks', error);
+      }
+    };
+
+    loadWeeksFromStorage();
+  }, []);
+
+  useEffect(() => {
+    setDaySummary(getLast5DaySummaryFromWeeks(weeks));
+  }, [weeks]);
+
+  const routeMap: Record<BottomTab, string> = {
+    today: '/today',
+    weekly: '/current-week',
+    monthly: '/monthly-insights',
+    'week-details': '/week-details',
+    stats: '/today',
+    settings: '/today',
   };
 
-  const handleAvatarPress = () => {
-    alert('Profile pressed');
+  const handleNavPress = (tab: BottomTab) => {
+    setActiveTab(tab);
+    const route = routeMap[tab];
+    if (route) {
+      router.push(route as any);
+    }
   };
 
   const handleSeeAll = () => {
@@ -415,13 +518,27 @@ export default function App() {
         showsVerticalScrollIndicator={false}
       >
         {/* Daily Progress */}
-        <DailyProgress currentHours={totalHoursToday} goalHours={goalHours} />
+        <DailyProgress />
 
         {/* Active Session Card */}
-        <ActiveSessionCard />
+        {/* <ActiveSessionCard /> */}
+
+        {/* Last 5 days summary */}
+        <View style={styles.timelineSubHeader}>
+          <Text style={[styles.timelineHeaderTitle, typography.headline]}>Last 5 Days</Text>
+          <Text style={[styles.seeAllText, typography.label]}>8h goal</Text>
+        </View>
+
+        {daySummary.length === 0 ? (
+          <View style={styles.noDaysCard}>
+            <Text style={[styles.noDaysText, typography.body]}>No Days To Show</Text>
+          </View>
+        ) : (
+          daySummary.map((entry) => <DaySummaryItem key={entry.id} entry={entry} />)
+        )}
 
         {/* Timeline Section */}
-        <View style={styles.timelineHeader}>
+        {/* <View style={styles.timelineHeader}>
           <Text style={[styles.timelineHeaderTitle, typography.headline]}>Timeline</Text>
           <TouchableOpacity onPress={handleSeeAll}>
             <View style={styles.seeAllButton}>
@@ -433,7 +550,7 @@ export default function App() {
 
         {timelineData.map((entry) => (
           <TimelineEntryItem key={entry.id} entry={entry} />
-        ))}
+        ))} */}
       </ScrollView>
     );
   };
@@ -441,9 +558,9 @@ export default function App() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
-      <TopBar onMenuPress={handleMenuPress} onAvatarPress={handleAvatarPress} />
+      <TopBar onMenuPress={() => alert('Menu pressed')} onAvatarPress={() => alert('Profile pressed')} />
       {renderContent()}
-      <BottomNav activeTab={activeTab} onTabPress={setActiveTab} />
+      <BottomNav activeTab={activeTab} onTabPress={handleNavPress} />
       <FAB onPress={handleFabPress} />
     </SafeAreaView>
   );
@@ -545,6 +662,13 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surfaceContainerHigh,
     borderRadius: 999,
     overflow: 'hidden',
+    marginTop: 8,
+  },
+  progressSubText: {
+    fontSize: 13,
+    color: Colors.onSurfaceVariant,
+    marginTop: 4,
+    marginBottom: 6,
   },
   progressBarFill: {
     height: '100%',
@@ -655,6 +779,46 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     color: Colors.primary,
+  },
+  timelineSubHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+    marginTop: 6,
+  },
+  daySummaryRow: {
+    backgroundColor: Colors.surfaceContainerLow,
+    borderRadius: 18,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 10,
+  },
+  daySummaryLeft: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  daySummaryDay: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: Colors.primary,
+  },
+  daySummaryWorked: {
+    fontSize: 12,
+    color: Colors.onSurfaceVariant,
+  },
+  daySummaryBarContainer: {
+    height: 6,
+    width: '100%',
+    backgroundColor: Colors.surfaceContainerHigh,
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  daySummaryBarFill: {
+    height: '100%',
+    backgroundColor: Colors.secondary,
   },
   seeAllButton: {
     flexDirection: 'row',
@@ -796,5 +960,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.onSurfaceVariant,
     textAlign: 'center',
+  },
+  noDaysCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: Colors.surfaceContainerHigh,
+    backgroundColor: Colors.surfaceContainerLowest,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  noDaysText: {
+    fontSize: 14,
+    color: Colors.onSurfaceVariant,
+    fontWeight: '600',
   },
 });

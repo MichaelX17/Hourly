@@ -1,16 +1,19 @@
+import { BottomNav, BottomTab } from '@/components/BottomNav';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect, useState } from 'react';
+import { useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import {
   Dimensions,
-  Image,
+  Platform,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -152,14 +155,12 @@ const calculateMonthlyMetrics = (weeks: WeekData[]) => {
     if (week.dayEntries) {
       week.dayEntries.forEach(entry => {
         const entryDate = new Date(entry.date);
-        if (entryDate.getMonth() === currentMonth && entryDate.getFullYear() === currentYear) {
-          totalHours += entry.hours;
-          if (entry.hours > 0) daysWorked++;
-          const dayKey = getDayOfWeek(entryDate);
-          dayHours[dayKey] = (dayHours[dayKey] || 0) + entry.hours;
-          const weekNum = getWeekNumber(entryDate);
-          weekHours[weekNum] = (weekHours[weekNum] || 0) + entry.hours;
-        }
+        totalHours += entry.hours;
+        if (entry.hours > 0) daysWorked++;
+        const dayKey = getDayOfWeek(entryDate);
+        dayHours[dayKey] = (dayHours[dayKey] || 0) + entry.hours;
+        const weekNum = getWeekNumber(entryDate);
+        weekHours[weekNum] = (weekHours[weekNum] || 0) + entry.hours;
       });
     }
   });
@@ -253,27 +254,6 @@ const generateSessionsData = (weeks: WeekData[]): Session[] => {
 // ---------------------------------------------------------------------
 // 6. Componentes
 // ---------------------------------------------------------------------
-
-// ---- Barra superior ----
-const TopBar = ({ onSettings }: { onSettings: () => void }) => {
-  const insets = useSafeAreaInsets();
-  return (
-    <View style={[styles.topBar, { paddingTop: insets.top || 16 }]}>
-      <View style={styles.topBarLeft}>
-        <Image
-          source={{
-            uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDoEApOZsvxDcmAlm62WHhJyWqdXRT5m_q7ljJ5XX1fKkCTj-oSjNEYGC4CCbA88Hqj0pd5b786MX8nXmbZEz7QJzADhIK6J5wdFYH6ZOhKvRLpwYnBwoFs17wKDzvlw9V2Pd9ppDFLhDY06ph5WoJ6GgC62yClRGoK4XiK1sDpXD1AXlP8uIYSzv93s1VSXLC7lFFzvUGhccpJOtyXdguiQSBoD6nKTqAefEAnnxngigFg26IzY1rcg_wvw0bu1d1PZtdmQkATEwI',
-          }}
-          style={styles.avatar}
-        />
-        <Text style={[styles.logoText, typography.headline]}>Hourly</Text>
-      </View>
-      <TouchableOpacity onPress={onSettings}>
-        <MaterialIcons name="settings" size={24} color={Colors.primary} />
-      </TouchableOpacity>
-    </View>
-  );
-};
 
 // ---- Tarjeta métrica ----
 const MetricCard = ({
@@ -412,78 +392,52 @@ const SessionItem = ({ session }: { session: Session }) => {
   );
 };
 
-// ---- Navegación inferior ----
-type Tab = 'weeks' | 'log' | 'stats';
-
-const BottomNav = ({
-  activeTab,
-  onTabPress,
-}: {
-  activeTab: Tab;
-  onTabPress: (tab: Tab) => void;
-}) => {
-  const insets = useSafeAreaInsets();
-
-  return (
-    <View style={[styles.bottomNav, { paddingBottom: insets.bottom || 12 }]}>
-      <TouchableOpacity
-        style={[styles.navItem, activeTab === 'weeks' && styles.navItemActive]}
-        onPress={() => onTabPress('weeks')}
-      >
-        <MaterialIcons
-          name="calendar-view-week"
-          size={24}
-          color={activeTab === 'weeks' ? Colors.primary : Colors.outline}
-        />
-        <Text style={[styles.navLabel, typography.label, activeTab === 'weeks' && styles.navLabelActive]}>
-          Weeks
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[styles.navItem, activeTab === 'log' && styles.navItemActive]}
-        onPress={() => onTabPress('log')}
-      >
-        <MaterialIcons
-          name="add-circle-outline"
-          size={24}
-          color={activeTab === 'log' ? Colors.primary : Colors.outline}
-        />
-        <Text style={[styles.navLabel, typography.label, activeTab === 'log' && styles.navLabelActive]}>
-          Log
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[styles.navItem, activeTab === 'stats' && styles.navItemActive]}
-        onPress={() => onTabPress('stats')}
-      >
-        <MaterialIcons
-          name="insights"
-          size={24}
-          color={activeTab === 'stats' ? Colors.primary : Colors.outline}
-        />
-        <Text style={[styles.navLabel, typography.label, activeTab === 'stats' && styles.navLabelActive]}>
-          Stats
-        </Text>
-      </TouchableOpacity>
-    </View>
-  );
-};
-
 // ---------------------------------------------------------------------
 // 5. Pantalla principal
 // ---------------------------------------------------------------------
 export default function App() {
-  const [activeTab, setActiveTab] = useState<Tab>('stats');
+  const router = useRouter();
+  const [activeAppTab, setActiveAppTab] = useState<BottomTab>('monthly');
+  const [activeTab, setActiveTab] = useState<'weeks' | 'log' | 'stats'>('stats');
   const [weeks, setWeeks] = useState<WeekData[]>([]);
   const [metrics, setMetrics] = useState<any>(null);
   const [weeklyData, setWeeklyData] = useState<any[]>([]);
   const [sessionsData, setSessionsData] = useState<Session[]>([]);
   const insets = useSafeAreaInsets();
 
+  const routeMap: Record<BottomTab, string> = {
+    today: '/today',
+    weekly: '/current-week',
+    monthly: '/monthly-insights',
+    'week-details': '/week-details',
+    stats: '/today',
+    settings: '/today',
+  };
+
+  const handleNavPress = (tab: BottomTab) => {
+    setActiveAppTab(tab);
+    const route = routeMap[tab];
+    if (route) router.push(route as any);
+  };
+
   const loadWeeks = async () => {
     try {
+      console.log('AsyncStorage', AsyncStorage, 'Platform', Platform.OS);
+      // Check if AsyncStorage is available (not available on web)
+      if (Platform.OS === 'web' || !AsyncStorage) {
+        console.log('AsyncStorage not available on this platform, using default data');
+        setMetrics({
+          totalHours: 0,
+          averageDaily: 0,
+          goalCompletion: 0,
+          daysWorked: 0,
+          peakDay: 'Tuesday',
+        });
+        setWeeklyData([]);
+        setSessionsData([]);
+        return;
+      }
+
       const stored = await AsyncStorage.getItem('@hourly/weeks');
       if (stored) {
         const parsedWeeks: WeekData[] = JSON.parse(stored);
@@ -504,13 +458,25 @@ export default function App() {
         setSessionsData([]);
       }
     } catch (error) {
-      console.error('Error loading weeks:', error);
+      console.log('AsyncStorage / loadWeeks error:', error);
+      // Fallback to default data on error
+      setMetrics({
+        totalHours: 0,
+        averageDaily: 0,
+        goalCompletion: 0,
+        daysWorked: 0,
+        peakDay: 'Tuesday',
+      });
+      setWeeklyData([]);
+      setSessionsData([]);
     }
   };
 
-  useEffect(() => {
-    loadWeeks();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadWeeks();
+    }, [])
+  );
 
   const handleSettings = () => {
     alert('Settings pressed');
@@ -613,9 +579,11 @@ export default function App() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
-      <TopBar onSettings={handleSettings} />
+      <View style={[styles.topBar, { paddingTop: insets.top || 16 }]}> 
+        <Text style={[styles.logoText, typography.headline]}>Monthly Insights</Text>
+      </View>
       {renderContent()}
-      <BottomNav activeTab={activeTab} onTabPress={setActiveTab} />
+      <BottomNav activeTab={activeAppTab} onTabPress={handleNavPress} />
     </SafeAreaView>
   );
 }

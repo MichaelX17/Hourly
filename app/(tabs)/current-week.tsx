@@ -1,3 +1,4 @@
+import { BottomNav, BottomTab } from '@/components/BottomNav';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -6,7 +7,6 @@ import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Dimensions,
-  Image,
   Modal,
   Platform,
   ScrollView,
@@ -230,9 +230,11 @@ const isValidIsoDate = (value: string) => {
 // 5. Main Screen
 // ---------------------------------------------------------------------
 export default function CurrentWeek() {
+  const router = useRouter();
   const { fontsLoaded, headline, body } = useTypography();
   const insets = useSafeAreaInsets();
 
+  const [activeAppTab, setActiveAppTab] = useState<BottomTab>('weekly');
   const [weeks, setWeeks] = useState<WeekData[]>(weeksData);
   const [showWeekModal, setShowWeekModal] = useState(false);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
@@ -241,6 +243,21 @@ export default function CurrentWeek() {
   const [weekDays, setWeekDays] = useState(5);
   const [dayHours, setDayHours] = useState<number[]>(Array(5).fill(0));
   const [showDatePicker, setShowDatePicker] = useState(false);
+
+  const routeMap: Record<BottomTab, string> = {
+    today: '/today',
+    weekly: '/current-week',
+    monthly: '/monthly-insights',
+    'week-details': '/week-details',
+    stats: '/today',
+    settings: '/today',
+  };
+
+  const handleNavPress = (tab: BottomTab) => {
+    setActiveAppTab(tab);
+    const route = routeMap[tab];
+    if (route) router.push(route as any);
+  };
 
   const today = new Date();
   const minStartDate = addDays(today, -6);
@@ -409,22 +426,14 @@ export default function CurrentWeek() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
-      {/* Top App Bar */}
-      <View style={[styles.topBar, { paddingTop: insets.top || 16 }]}>
+      <View style={[styles.topBar, { paddingTop: insets.top || 16 }]}> 
         <View style={styles.profileSection}>
-          <Image
-            source={{
-              uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuC5dBklQShil_Afe1f-5kCUt_-J10FTalo8AZSlHkQkBwaG2QWCtvc68SC4_yQ92wlq57DvIUlmus60HL7HYAKKXePTC_AD3AO9ce1H0iDx27KAgLyihNCeUGbQg-T4h2DvFvaSv0-uBjPZgRg09ugPJw17EfZsm23Oe8Ymxp3TJt-eAoI25arbN-RhwRgmdy4be2bJEnm0rqpbXVsi0EPfBuDjHDjVPk5H61pWgJZyJB859xzIuvhvuJthxqj-MDuo2vjlN1XBA0I',
-            }}
-            style={styles.avatar}
-          />
-          <Text style={[styles.logoText, headline]}>Hourly</Text>
+          <Text style={[styles.logoText, headline]}>Weekly</Text>
         </View>
-        <TouchableOpacity onPress={() => console.log('Settings')}>
+        <TouchableOpacity onPress={() => alert('Settings')}>
           <MaterialIcons name="settings" size={24} color={Colors.primary} />
         </TouchableOpacity>
       </View>
-
       {/* Main Content */}
       <ScrollView
         style={styles.scrollView}
@@ -581,6 +590,7 @@ export default function CurrentWeek() {
           <Text style={[styles.monthlySummarySub, body]}>{monthDaysWorked} days worked</Text>
         </View>
       </ScrollView>
+      <BottomNav activeTab={activeAppTab} onTabPress={handleNavPress} />
     </SafeAreaView>
   );
 }

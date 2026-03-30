@@ -1,14 +1,17 @@
+import { BottomNav, BottomTab } from '@/components/BottomNav';
 import { MaterialIcons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import {
   Dimensions,
-  Image,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -97,200 +100,104 @@ type DayData = {
   isPeak?: boolean; // Para marcar el día más productivo
 };
 
+type DayEntry = {
+  date: string;
+  hours: number;
+  note?: string;
+};
+
+type WeekData = {
+  id: string;
+  dateRange: string;
+  totalHours: string;
+  activeDays: number;
+  totalDays: number;
+  goalPercentage: number;
+  days: ('active' | 'inactive')[];
+  dayEntries?: DayEntry[];
+  startDate?: string;
+  endDate?: string;
+  isActive?: boolean;
+  customLabel?: string;
+  customLabelColor?: string;
+  barColor?: string;
+};
+
+const getShortDayName = (dateString: string) => {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', { weekday: 'short' });
+};
+
+const getMonthName = (dateString: string) => {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', { month: 'long' });
+};
+
+const mapWeekToDayData = (week: WeekData): DayData[] => {
+  if (!week?.dayEntries?.length) return [];
+
+  const maxHours = Math.max(...week.dayEntries.map(entry => entry.hours), 0);
+
+  return week.dayEntries.map((entry) => {
+    const date = new Date(entry.date);
+    return {
+      id: entry.date,
+      dayName: getShortDayName(entry.date),
+      dayNumber: date.getDate(),
+      month: getMonthName(entry.date),
+      sessions: entry.hours > 0
+        ? [{
+            id: `${entry.date}-work`,
+            title: entry.note || 'Tracked Work',
+            startTime: 'N/A',
+            endTime: 'N/A',
+            durationHours: entry.hours,
+            iconColor: Colors.primary,
+          }]
+        : [],
+      totalHours: entry.hours,
+      isPeak: entry.hours === maxHours && maxHours > 0,
+    } as DayData;
+  });
+};
+
+const calculateSummaryFromDays = (days: DayData[]) => {
+  const totalHours = days.reduce((sum, day) => sum + (day.totalHours || 0), 0);
+  const totalSessions = days.reduce((sum, day) => sum + day.sessions.length, 0);
+  const averageSession = totalSessions > 0 ? totalHours / totalSessions : 0;
+
+  return {
+    totalHours,
+    totalSessions,
+    averageSession,
+  };
+};
+
 // Datos de ejemplo (basados en el HTML)
-const daysData: DayData[] = [
-  {
-    id: 'mon',
-    dayName: 'Mon',
-    dayNumber: 21,
-    month: 'August',
-    sessions: [
-      {
-        id: 's1',
-        title: 'Deep Work: UI Design',
-        startTime: '09:00 AM',
-        endTime: '12:30 PM',
-        durationHours: 3.5,
-        iconColor: Colors.tertiary,
-      },
-      {
-        id: 's2',
-        title: 'Weekly Sync Meeting',
-        startTime: '01:30 PM',
-        endTime: '02:45 PM',
-        durationHours: 1.25,
-        iconColor: Colors.secondary,
-      },
-      {
-        id: 's3',
-        title: 'Frontend Implementation',
-        startTime: '03:00 PM',
-        endTime: '06:00 PM',
-        durationHours: 3,
-        iconColor: Colors.primary,
-      },
-    ],
-    totalHours: 7.75, // 7h 45m
-  },
-  {
-    id: 'tue',
-    dayName: 'Tue',
-    dayNumber: 22,
-    month: 'August',
-    sessions: [
-      {
-        id: 's4',
-        title: 'Design System Workshop',
-        startTime: '08:00 AM',
-        endTime: '10:30 AM',
-        durationHours: 2.5,
-        iconColor: Colors.tertiary,
-      },
-      {
-        id: 's5',
-        title: 'Code Review',
-        startTime: '11:00 AM',
-        endTime: '12:00 PM',
-        durationHours: 1,
-        iconColor: Colors.secondary,
-      },
-      {
-        id: 's6',
-        title: 'Client Call',
-        startTime: '01:00 PM',
-        endTime: '02:00 PM',
-        durationHours: 1,
-        iconColor: Colors.primary,
-      },
-      {
-        id: 's7',
-        title: 'Feature Implementation',
-        startTime: '02:30 PM',
-        endTime: '05:30 PM',
-        durationHours: 3,
-        iconColor: Colors.tertiary,
-      },
-      {
-        id: 's8',
-        title: 'Documentation',
-        startTime: '06:00 PM',
-        endTime: '07:00 PM',
-        durationHours: 1,
-        iconColor: Colors.secondary,
-      },
-    ],
-    totalHours: 9.5, // 9h 30m
-    isPeak: true,
-  },
-  {
-    id: 'wed',
-    dayName: 'Wed',
-    dayNumber: 23,
-    month: 'August',
-    sessions: [
-      {
-        id: 's9',
-        title: 'Morning Planning',
-        startTime: '09:00 AM',
-        endTime: '10:00 AM',
-        durationHours: 1,
-        iconColor: Colors.primary,
-      },
-      {
-        id: 's10',
-        title: 'Development Sprint',
-        startTime: '10:30 AM',
-        endTime: '03:30 PM',
-        durationHours: 5,
-        iconColor: Colors.tertiary,
-      },
-    ],
-    totalHours: 6.25, // 6h 15m
-  },
-  {
-    id: 'thu',
-    dayName: 'Thu',
-    dayNumber: 24,
-    month: 'August',
-    sessions: [
-      {
-        id: 's11',
-        title: 'Backlog Grooming',
-        startTime: '09:30 AM',
-        endTime: '11:00 AM',
-        durationHours: 1.5,
-        iconColor: Colors.secondary,
-      },
-      {
-        id: 's12',
-        title: 'Development',
-        startTime: '11:30 AM',
-        endTime: '02:30 PM',
-        durationHours: 3,
-        iconColor: Colors.tertiary,
-      },
-      {
-        id: 's13',
-        title: 'Team Sync',
-        startTime: '03:00 PM',
-        endTime: '04:00 PM',
-        durationHours: 1,
-        iconColor: Colors.primary,
-      },
-      {
-        id: 's14',
-        title: 'Documentation',
-        startTime: '04:30 PM',
-        endTime: '06:30 PM',
-        durationHours: 2,
-        iconColor: Colors.secondary,
-      },
-    ],
-    totalHours: 8.0,
-  },
-];
+const daysData: DayData[] = []; // Replaced placeholder data with empty initial state; se llenará desde AsyncStorage.
+
 
 // ---------------------------------------------------------------------
 // 4. Componentes
 // ---------------------------------------------------------------------
 
-// ---- Barra superior ----
-const TopBar = ({ onBack, onSettings }: { onBack: () => void; onSettings: () => void }) => {
-  const insets = useSafeAreaInsets();
-  return (
-    <View style={[styles.topBar, { paddingTop: insets.top || 16 }]}>
-      <View style={styles.topBarLeft}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <MaterialIcons name="arrow-back" size={24} color={Colors.primary} />
-        </TouchableOpacity>
-        <Text style={[styles.logoText, typography.headline]}>Hourly</Text>
-      </View>
-      <View style={styles.topBarRight}>
-        <TouchableOpacity onPress={onSettings}>
-          <MaterialIcons name="settings" size={24} color={Colors.primary} style={styles.settingsIcon} />
-        </TouchableOpacity>
-        <Image
-          source={{
-            uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAdK5lnX5Vn9qGQ_UlFEdj2YFYtpWfiSiWUcwh5Oe49V4IK29JVOOX68ieiWfdmuDD5zRPuLy5XM-Nx5B6eIiUC0NlJpyaYVgS8nvsAX0SWflBxxF4WZ5a4GvRVbFJ-q_9ZHxVrH0oOkv86YdQSranAcBtspnNSpQz5pIUWJMG9baw69WcdZsftYZGReWjZLE4vh8H7otWFRJ3x31JovM5McA6DSzMqaWb4lPY8tbdyDpoHfLT3mhwm8bIWvGgPQ8kRotaSE3HR_Mw',
-          }}
-          style={styles.avatar}
-        />
-      </View>
-    </View>
-  );
-};
-
 // ---- Bento Highlights ----
-const BentoHighlights = () => {
-  // Datos simulados para el día más productivo (Tuesday)
-  const peakDay = daysData.find(d => d.isPeak)!;
+const BentoHighlights = ({ days }: { days: DayData[] }) => {
+  // Usar el día más productivo calculado dinámicamente
+  const peakDay = days.length
+    ? days.reduce((best, current) => {
+        if (!best || current.totalHours > best.totalHours) return current;
+        return best;
+      }, days[0])
+    : { id: 'none', dayName: 'N/A', dayNumber: 0, month: '', sessions: [], totalHours: 0 };
 
-  // Gráfico de barras (alturas aproximadas basadas en las horas de cada día)
-  const barHeights = daysData.map(day => {
-    const maxHours = 10;
-    const height = (day.totalHours / maxHours) * 80;
+  const maxHours = days.length ? Math.max(...days.map((day) => day.totalHours), 8) : 8;
+  const barHeights = days.map(day => {
+    const height = maxHours > 0 ? (day.totalHours / maxHours) * 80 : 20;
     return Math.max(20, height);
   });
+
+  const { totalHours, totalSessions, averageSession } = calculateSummaryFromDays(days);
 
   return (
     <View style={styles.highlightsContainer}>
@@ -327,7 +234,7 @@ const BentoHighlights = () => {
           </View>
           <View>
             <Text style={[styles.statLabel, typography.label]}>Total Sessions</Text>
-            <Text style={[styles.statValue, typography.headline]}>12</Text>
+            <Text style={[styles.statValue, typography.headline]}>{totalSessions}</Text>
           </View>
         </View>
 
@@ -337,7 +244,7 @@ const BentoHighlights = () => {
           </View>
           <View>
             <Text style={[styles.statLabel, typography.label]}>Average Session</Text>
-            <Text style={[styles.statValue, typography.headline]}>3.5h</Text>
+            <Text style={[styles.statValue, typography.headline]}>{averageSession.toFixed(1)}h</Text>
           </View>
         </View>
       </View>
@@ -428,79 +335,20 @@ const DayItem = ({
 };
 
 // ---- Tarjeta de resumen semanal (pulse) ----
-const WeeklySummaryCard = () => {
+const WeeklySummaryCard = ({ totalHours }: { totalHours: number }) => {
   return (
     <View style={styles.summaryCard}>
       <View style={styles.blurBackground1} />
       <View style={styles.blurBackground2} />
       <Text style={[styles.summaryLabel, typography.label]}>Total Weekly Impact</Text>
       <View style={styles.totalHoursWrapper}>
-        <Text style={[styles.totalHoursLarge, typography.headline]}>42.5</Text>
+        <Text style={[styles.totalHoursLarge, typography.headline]}>{totalHours.toFixed(1)}</Text>
         <Text style={[styles.totalHoursUnit, typography.headline]}>HRS</Text>
       </View>
       <View style={styles.trendContainer}>
         <MaterialIcons name="trending-up" size={20} color={Colors.tertiary} />
-        <Text style={[styles.trendText, typography.body]}>12% more than last week</Text>
+        <Text style={[styles.trendText, typography.body]}>Overall goals reflect week activity</Text>
       </View>
-    </View>
-  );
-};
-
-// ---- Navegación inferior (similar a la anterior) ----
-type Tab = 'weeks' | 'log' | 'stats';
-
-const BottomNav = ({
-  activeTab,
-  onTabPress,
-}: {
-  activeTab: Tab;
-  onTabPress: (tab: Tab) => void;
-}) => {
-  const insets = useSafeAreaInsets();
-
-  return (
-    <View style={[styles.bottomNav, { paddingBottom: insets.bottom || 12 }]}>
-      <TouchableOpacity
-        style={[styles.navItem, activeTab === 'weeks' && styles.navItemActive]}
-        onPress={() => onTabPress('weeks')}
-      >
-        <MaterialIcons
-          name="calendar-view-week"
-          size={24}
-          color={activeTab === 'weeks' ? Colors.primary : Colors.outline}
-        />
-        <Text style={[styles.navLabel, typography.label, activeTab === 'weeks' && styles.navLabelActive]}>
-          Weeks
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[styles.navItem, activeTab === 'log' && styles.navItemActive]}
-        onPress={() => onTabPress('log')}
-      >
-        <MaterialIcons
-          name="add-circle-outline"
-          size={24}
-          color={activeTab === 'log' ? Colors.primary : Colors.outline}
-        />
-        <Text style={[styles.navLabel, typography.label, activeTab === 'log' && styles.navLabelActive]}>
-          Log
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[styles.navItem, activeTab === 'stats' && styles.navItemActive]}
-        onPress={() => onTabPress('stats')}
-      >
-        <MaterialIcons
-          name="insights"
-          size={24}
-          color={activeTab === 'stats' ? Colors.primary : Colors.outline}
-        />
-        <Text style={[styles.navLabel, typography.label, activeTab === 'stats' && styles.navLabelActive]}>
-          Stats
-        </Text>
-      </TouchableOpacity>
     </View>
   );
 };
@@ -509,9 +357,30 @@ const BottomNav = ({
 // 5. Pantalla principal
 // ---------------------------------------------------------------------
 export default function App() {
-  const [activeTab, setActiveTab] = useState<Tab>('weeks');
+  const router = useRouter();
+  const [activeAppTab, setActiveAppTab] = useState<BottomTab>('week-details');
+  const [activeTab, setActiveTab] = useState<'weeks' | 'log' | 'stats'>('weeks');
   const [expandedDayId, setExpandedDayId] = useState<string>('mon'); // Lunes expandido por defecto
+  const [weeks, setWeeks] = useState<WeekData[]>([]);
+  const [selectedWeek, setSelectedWeek] = useState<WeekData | null>(null);
+  const [dayRecords, setDayRecords] = useState<DayData[]>(daysData);
+  const [isLoadingWeek, setIsLoadingWeek] = useState<boolean>(true);
   const insets = useSafeAreaInsets();
+
+  const routeMap: Record<BottomTab, string> = {
+    today: '/today',
+    weekly: '/current-week',
+    monthly: '/monthly-insights',
+    'week-details': '/week-details',
+    stats: '/today',
+    settings: '/today',
+  };
+
+  const handleNavPress = (tab: BottomTab) => {
+    setActiveAppTab(tab);
+    const route = routeMap[tab];
+    if (route) router.push(route as any);
+  };
 
   const handleBack = () => {
     // Simular navegación (puedes reemplazar con navigation.goBack() si usas React Navigation)
@@ -524,6 +393,51 @@ export default function App() {
 
   const toggleDay = (dayId: string) => {
     setExpandedDayId(expandedDayId === dayId ? '' : dayId);
+  };
+
+  const loadWeekRecords = async () => {
+    setIsLoadingWeek(true);
+    try {
+      const stored = await AsyncStorage.getItem('@hourly/weeks');
+      if (stored) {
+        const parsedWeeks: WeekData[] = JSON.parse(stored);
+        setWeeks(parsedWeeks);
+        const activeOrLast = parsedWeeks.find((w) => w.isActive) || parsedWeeks[0] || null;
+        setSelectedWeek(activeOrLast);
+
+        if (activeOrLast) {
+          const mapped = mapWeekToDayData(activeOrLast);
+          setDayRecords(mapped);
+          setExpandedDayId(mapped[0]?.id ?? '');
+        } else {
+          setDayRecords([]);
+        }
+      } else {
+        setWeeks([]);
+        setSelectedWeek(null);
+        setDayRecords([]);
+      }
+    } catch (error) {
+      console.warn('Error loading week records:', error);
+      setWeeks([]);
+      setSelectedWeek(null);
+      setDayRecords([]);
+    } finally {
+      setIsLoadingWeek(false);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      loadWeekRecords();
+    }, [])
+  );
+
+  const selectWeek = (week: WeekData) => {
+    setSelectedWeek(week);
+    const mapped = mapWeekToDayData(week);
+    setDayRecords(mapped);
+    setExpandedDayId(mapped[0]?.id ?? '');
   };
 
   // Renderizado según pestaña activa
@@ -550,28 +464,61 @@ export default function App() {
         {/* Hero Section */}
         <View style={styles.heroSection}>
           <Text style={[styles.heroSubtitle, typography.label]}>Detailed View</Text>
-          <Text style={[styles.heroTitle, typography.headline]}>Current Week: Aug 21 - Aug 27</Text>
+          <Text style={[styles.heroTitle, typography.headline]}>{selectedWeek ? `Week: ${selectedWeek.dateRange}` : 'Week details'}</Text>
         </View>
 
-        {/* Bento Highlights */}
-        <BentoHighlights />
+        {/* Week selector con datos del storage */}
+        {weeks.length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.weekSelectorContainer}>
+            {weeks.map((week) => (
+              <TouchableOpacity
+                key={week.id}
+                style={[
+                  styles.weekChip,
+                  selectedWeek?.id === week.id && styles.weekChipSelected,
+                ]}
+                onPress={() => selectWeek(week)}
+              >
+                <Text
+                  style={selectedWeek?.id === week.id ? styles.weekChipTextSelected : styles.weekChipText}
+                >
+                  {week.dateRange}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
 
-        {/* Daily Breakdown */}
-        <View style={styles.dailyBreakdownHeader}>
-          <Text style={[styles.dailyBreakdownTitle, typography.headline]}>Daily Breakdown</Text>
-        </View>
+        {!selectedWeek ? (
+          <View style={styles.emptyState}>
+            <Text style={[styles.emptyText, typography.body]}>No weekly records found. Crea una semana en la pantalla de inicio para ver detalles aquí.</Text>
+          </View>
+        ) : (
+          <>
+            <BentoHighlights days={dayRecords} />
 
-        {daysData.map((day) => (
-          <DayItem
-            key={day.id}
-            day={day}
-            isExpanded={expandedDayId === day.id}
-            onToggle={() => toggleDay(day.id)}
-          />
-        ))}
+            <View style={styles.dailyBreakdownHeader}>
+              <Text style={[styles.dailyBreakdownTitle, typography.headline]}>Daily Breakdown</Text>
+            </View>
 
-        {/* Weekly Summary Card */}
-        <WeeklySummaryCard />
+            {dayRecords.length > 0 ? (
+              dayRecords.map((day) => (
+                <DayItem
+                  key={day.id}
+                  day={day}
+                  isExpanded={expandedDayId === day.id}
+                  onToggle={() => toggleDay(day.id)}
+                />
+              ))
+            ) : (
+              <View style={styles.emptyState}>
+                <Text style={[styles.emptyText, typography.body]}>No daily entries for esta semana.</Text>
+              </View>
+            )}
+
+            <WeeklySummaryCard totalHours={calculateSummaryFromDays(dayRecords).totalHours} />
+          </>
+        )}
       </ScrollView>
     );
   };
@@ -579,9 +526,19 @@ export default function App() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
-      <TopBar onBack={handleBack} onSettings={handleSettings} />
+      <View style={[styles.topBar, { paddingTop: insets.top || 16 }]}> 
+        <View style={styles.topBarLeft}>
+          <MaterialIcons name="schedule" size={24} color={Colors.primary} />
+          <Text style={[styles.logoText, typography.headline]}>Week Details</Text>
+        </View>
+        <View style={styles.topBarRight}>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.push('/today')}>
+            <MaterialIcons name="arrow-back" size={24} color={Colors.primary} />
+          </TouchableOpacity>
+        </View>
+      </View>
       {renderContent()}
-      <BottomNav activeTab={activeTab} onTabPress={setActiveTab} />
+      <BottomNav activeTab={activeAppTab} onTabPress={handleNavPress} />
     </SafeAreaView>
   );
 }
@@ -738,6 +695,33 @@ const styles = StyleSheet.create({
     color: Colors.onBackground,
   },
   // Daily Breakdown
+  weekSelectorContainer: {
+    flexDirection: 'row',
+    marginBottom: 12,
+  },
+  weekChip: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.surfaceContainerHigh,
+    backgroundColor: Colors.surfaceContainerLowest,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginRight: 8,
+  },
+  weekChipSelected: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  weekChipText: {
+    color: Colors.onSurface,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  weekChipTextSelected: {
+    color: Colors.onPrimary,
+    fontSize: 12,
+    fontWeight: '600',
+  },
   dailyBreakdownHeader: {
     marginBottom: 16,
     paddingHorizontal: 8,
@@ -990,6 +974,17 @@ const styles = StyleSheet.create({
   placeholderSub: {
     fontSize: 16,
     color: Colors.onSurfaceVariant,
+    textAlign: 'center',
+  },
+  emptyState: {
+    marginTop: 16,
+    borderRadius: 16,
+    backgroundColor: Colors.surfaceContainerLow,
+    padding: 20,
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: Colors.outlineVariant,
     textAlign: 'center',
   },
 });
