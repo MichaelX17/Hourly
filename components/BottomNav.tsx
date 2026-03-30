@@ -1,3 +1,4 @@
+import { useAppTheme } from '@/app/(tabs)/ThemeContext';
 import { MaterialIcons } from '@expo/vector-icons';
 import { usePathname, useRouter } from 'expo-router';
 import React from 'react';
@@ -75,29 +76,31 @@ export const BottomNav = ({ activeTab, onTabPress }: BottomNavProps) => {
     }
   };
 
+  const { colors } = useAppTheme();
+
   return (
     <View
       style={[
         styles.bottomNav,
-        { paddingBottom: Math.max(insets.bottom, 12) },
+        { paddingBottom: Math.max(insets.bottom, 12), backgroundColor: colors.surfaceContainerHigh },
       ]}
     >
       {navItems.map((item) => {
         const isActive = effectiveTab === item.key;
-        const iconColor = isActive ? styles.navLabelActive.color : styles.navLabel.color;
+        const iconColor = isActive ? colors.primary : colors.onSurfaceVariant;
 
         return (
           <Pressable
             key={item.key}
-            style={[styles.navItem, isActive && styles.navItemActive]}
+            style={[styles.navItem, isActive && { backgroundColor: colors.primaryFixedDim + '20' }]}
             onPress={() => handlePress(item)}
             accessibilityRole="button"
             accessibilityState={{ selected: isActive }}
             accessibilityLabel={`${item.label} tab`}
             testID={`bottom-nav-${item.key}`}
           >
-            <MaterialIcons name={item.icon} size={24} color={iconColor ?? '#737785'} />
-            <Text style={[styles.navLabel, isActive && styles.navLabelActive]}>
+            <MaterialIcons name={item.icon} size={24} color={iconColor} />
+            <Text style={[styles.navLabel, { color: isActive ? colors.primary : colors.onSurfaceVariant }]}> 
               {item.label}
             </Text>
           </Pressable>
@@ -146,7 +149,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   navLabelActive: {
-    color: '#004f59',
+    color: '#7f5af0',
     fontWeight: 'bold',
   },
 });

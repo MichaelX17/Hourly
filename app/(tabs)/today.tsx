@@ -5,61 +5,19 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { usePathname, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-  Dimensions,
-  Image,
+  Animated,
   ScrollView,
   StatusBar,
-  StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { createTodayStyles } from './tabStyles';
+import { useAppTheme } from './ThemeContext';
+import { TopBar } from './TopBar';
 
-// ---------------------------------------------------------------------
-// 1. Color Palette (del HTML)
-// ---------------------------------------------------------------------
-const Colors = {
-  primary: '#004f59',
-  onPrimary: '#ffffff',
-  primaryContainer: '#006975',
-  onPrimaryContainer: '#6beaff',
-  primaryFixed: '#9cf0ff',
-  primaryFixedDim: '#00daf3',
-  secondary: '#4c56af',
-  onSecondary: '#ffffff',
-  secondaryContainer: '#959efd',
-  onSecondaryContainer: '#27308a',
-  secondaryFixed: '#e0e0ff',
-  secondaryFixedDim: '#bdc2ff',
-  tertiary: '#00531e',
-  onTertiary: '#ffffff',
-  tertiaryContainer: '#006e2a',
-  onTertiaryContainer: '#54f67a',
-  tertiaryFixed: '#69ff87',
-  tertiaryFixedDim: '#3ce36a',
-  error: '#ba1a1a',
-  onError: '#ffffff',
-  errorContainer: '#ffdad6',
-  onErrorContainer: '#93000a',
-  background: '#f7f9fc',
-  onBackground: '#191c1e',
-  surface: '#f7f9fc',
-  onSurface: '#191c1e',
-  surfaceVariant: '#e0e3e6',
-  onSurfaceVariant: '#424654',
-  surfaceContainerLowest: '#ffffff',
-  surfaceContainerLow: '#f2f4f7',
-  surfaceContainer: '#eceef1',
-  surfaceContainerHigh: '#e6e8eb',
-  surfaceContainerHighest: '#e0e3e6',
-  inverseSurface: '#2d3133',
-  inverseOnSurface: '#eff1f4',
-  inversePrimary: '#00daf3',
-  outline: '#737785',
-  outlineVariant: '#c3c6d6',
-  surfaceTint: '#006875',
-};
+
 
 // ---------------------------------------------------------------------
 // 2. Tipografía usando fuentes del sistema
@@ -79,6 +37,12 @@ const typography = {
   },
 };
 
+const useTodayStyles = () => {
+  const { colors } = useAppTheme();
+  const styles = createTodayStyles(colors);
+  return { styles, colors };
+};
+
 // ---------------------------------------------------------------------
 // 3. Datos de ejemplo
 // ---------------------------------------------------------------------
@@ -95,7 +59,7 @@ type TimelineEntry = {
   categoryType: 'billable' | 'meeting' | 'other';
 };
 
-const timelineData: TimelineEntry[] = [
+const buildTimelineData = (colors: Record<string, string>): TimelineEntry[] => [
   {
     id: '1',
     title: 'System Architecture',
@@ -104,7 +68,7 @@ const timelineData: TimelineEntry[] = [
     duration: '2h 30m',
     durationHours: 2.5,
     icon: 'architecture',
-    iconColor: Colors.primary,
+    iconColor: colors.primary,
     category: 'Billable',
     categoryType: 'billable',
   },
@@ -116,7 +80,7 @@ const timelineData: TimelineEntry[] = [
     duration: '0h 45m',
     durationHours: 0.75,
     icon: 'groups',
-    iconColor: Colors.secondary,
+    iconColor: colors.secondary,
     category: 'Meeting',
     categoryType: 'meeting',
   },
@@ -128,7 +92,7 @@ const timelineData: TimelineEntry[] = [
     duration: '1h 15m',
     durationHours: 1.25,
     icon: 'edit-note',
-    iconColor: Colors.tertiary,
+    iconColor: colors.tertiary,
     category: 'Billable',
     categoryType: 'billable',
   },
@@ -219,18 +183,39 @@ const getDayProgress = () => {
 
 // ---- Sección de progreso diario (avance del día en tiempo)
 const DailyProgress = () => {
-  const [tick, setTick] = useState(0);
+  const { styles } = useTodayStyles();
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const progressAnim = useState(new Animated.Value(0))[0];
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setTick((prev) => prev + 1);
+      setCurrentTime(new Date());
     }, 1000);
     return () => clearInterval(interval);
   }, []);
 
-  const { now, progressPercent, elapsedHours, elapsedMinutes, elapsedSeconds, remainingHours, remainingMinutes } = getDayProgress();
+  useEffect(() => {
+    const now = currentTime;
+    const secondsSinceMidnight = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+    const totalDaySeconds = 24 * 3600;
+    const progressPercent = Math.min(100, Math.max(0, (secondsSinceMidnight / totalDaySeconds) * 100));
+    Animated.timing(progressAnim, {
+      toValue: progressPercent,
+      duration: 500,
+      useNativeDriver: false,
+    }).start();
+  }, [currentTime, progressAnim]);
+
+  const now = currentTime;
+  const secondsSinceMidnight = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+  const totalDaySeconds = 24 * 3600;
+  const progressPercent = Math.min(100, Math.max(0, (secondsSinceMidnight / totalDaySeconds) * 100));
   const formattedCurrentTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const elapsedHours = Math.floor(secondsSinceMidnight / 3600);
+  const elapsedMinutes = Math.floor((secondsSinceMidnight % 3600) / 60);
   const formattedElapsed = `${elapsedHours.toString().padStart(2, '0')}h ${elapsedMinutes.toString().padStart(2, '0')}m`;
+  const remainingHours = 23 - elapsedHours;
+  const remainingMinutes = 59 - elapsedMinutes;
   const formattedRemaining = `${remainingHours.toString().padStart(2, '0')}h ${remainingMinutes.toString().padStart(2, '0')}m`;
 
   return (
@@ -244,37 +229,11 @@ const DailyProgress = () => {
       </View>
       <Text style={[styles.progressSubText, typography.body]}>{`Elapsed: ${formattedElapsed} · Remaining: ${formattedRemaining}`}</Text>
       <View style={styles.progressBarContainer}>
-        <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
+        <Animated.View style={[styles.progressBarFill, { width: progressAnim.interpolate({
+          inputRange: [0, 100],
+          outputRange: ['0%', '100%'],
+        }) }]} />
       </View>
-    </View>
-  );
-};
-
-// ---- Barra superior fija local ----
-const TopBar = ({ onMenuPress, onAvatarPress }: { onMenuPress: () => void; onAvatarPress: () => void }) => {
-  const insets = useSafeAreaInsets();
-  const currentDate = new Date();
-  const formattedDate = currentDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-
-  return (
-    <View style={[styles.topBar, { paddingTop: insets.top || 16 }]}> 
-      <View style={styles.topBarLeft}>
-        <TouchableOpacity onPress={onMenuPress} style={styles.menuButton}>
-          <MaterialIcons name="menu" size={24} color={Colors.primary} />
-        </TouchableOpacity>
-      </View>
-      <View style={styles.topBarCenter}>
-        <Text style={[styles.topBarTitle, typography.headline]}>Today</Text>
-        <Text style={[styles.topBarDate, typography.label]}>{formattedDate}</Text>
-      </View>
-      <TouchableOpacity onPress={onAvatarPress}>
-        <Image
-          source={{
-            uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBud6YSLnRmcdlGYa9eMKEtESa2K4DfE7hTW9J-WudDcF9C6uSXSGnMfCRDAmHBSKl-qoY32wxth2v65993p7CpSpVeBjllNzocXshWN8qG-gEjhnW7vk9jgH6LzOlOzQiCcoezwTRgRrqlnMElT1PduKiKZfhdG1qha5K7pzmrau5c98qAixhzuBliK408FP65_GSKrYjpAUX6nlmXdpWx8WZ5yuX4S5_pEjnlL68KDSCDKPC1o_1BV9yDygd3JYCpiiZn3uB7nl4',
-          }}
-          style={styles.avatar}
-        />
-      </TouchableOpacity>
     </View>
   );
 };
@@ -343,12 +302,12 @@ const TopBar = ({ onMenuPress, onAvatarPress }: { onMenuPress: () => void; onAva
 //         <Text style={[styles.timerDisplay, typography.headline]}>{formatTime(seconds)}</Text>
 //         <TouchableOpacity style={styles.stopButton} onPress={handleStop}>
 //           <LinearGradient
-//             colors={[Colors.primary, Colors.primaryContainer]}
+//             colors={[colors.primary, colors.primaryContainer]}
 //             start={{ x: 0, y: 0 }}
 //             end={{ x: 1, y: 1 }}
 //             style={styles.stopButtonGradient}
 //           >
-//             <MaterialIcons name="stop-circle" size={24} color={Colors.onPrimary} />
+//             <MaterialIcons name="stop-circle" size={24} color={colors.onPrimary} />
 //             <Text style={[styles.stopButtonText, typography.headline]}>Stop Session</Text>
 //           </LinearGradient>
 //         </TouchableOpacity>
@@ -359,6 +318,7 @@ const TopBar = ({ onMenuPress, onAvatarPress }: { onMenuPress: () => void; onAva
 
 // ---- Lista de últimos 5 días trabajados ----
 const DaySummaryItem = ({ entry }: { entry: DaySummaryEntry }) => {
+  const { styles } = useTodayStyles();
   return (
     <View style={styles.daySummaryRow}>
       <View style={styles.daySummaryLeft}>
@@ -377,13 +337,13 @@ const DaySummaryItem = ({ entry }: { entry: DaySummaryEntry }) => {
 //   const getCategoryStyle = () => {
 //     if (entry.categoryType === 'billable') {
 //       return {
-//         backgroundColor: `${Colors.tertiaryContainer}10`,
-//         color: Colors.tertiary,
+//         backgroundColor: `${colors.tertiaryContainer}10`,
+//         color: colors.tertiary,
 //       };
 //     }
 //     return {
-//       backgroundColor: Colors.surfaceContainerHighest,
-//       color: Colors.onSurfaceVariant,
+//       backgroundColor: colors.surfaceContainerHighest,
+//       color: colors.onSurfaceVariant,
 //     };
 //   };
 
@@ -416,15 +376,16 @@ const DaySummaryItem = ({ entry }: { entry: DaySummaryEntry }) => {
 
 // ---- Botón de acción flotante (FAB) ----
 const FAB = ({ onPress }: { onPress: () => void }) => {
+  const { styles, colors } = useTodayStyles();
   return (
     <TouchableOpacity style={styles.fab} onPress={onPress} activeOpacity={0.8}>
       <LinearGradient
-        colors={[Colors.primary, Colors.primaryContainer]}
+        colors={[colors.primary, colors.primaryContainer]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.fabGradient}
       >
-        <MaterialIcons name="add" size={28} color={Colors.onPrimary} />
+        <MaterialIcons name="add" size={28} color={colors.onPrimary} />
       </LinearGradient>
     </TouchableOpacity>
   );
@@ -436,6 +397,7 @@ const FAB = ({ onPress }: { onPress: () => void }) => {
 export default function App() {
   const router = useRouter();
   const pathname = usePathname();
+  const { mode, colors, toggleMode } = useAppTheme();
   const [activeTab, setActiveTab] = useState<BottomTab>('today');
   const [weeks, setWeeks] = useState<WeekData[]>([]);
   const [daySummary, setDaySummary] = useState<DaySummaryEntry[]>([]);
@@ -453,7 +415,10 @@ export default function App() {
         const stored = await AsyncStorage.getItem('@hourly/weeks');
         if (stored) {
           const parsed: WeekData[] = JSON.parse(stored);
+          console.log('Loaded weeks:', parsed);
           setWeeks(parsed);
+        } else {
+          console.log('No weeks stored');
         }
       } catch (error) {
         console.warn('Unable to load weeks', error);
@@ -464,7 +429,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    setDaySummary(getLast5DaySummaryFromWeeks(weeks));
+    const summary = getLast5DaySummaryFromWeeks(weeks);
+    console.log('Day summary:', summary);
+    setDaySummary(summary);
   }, [weeks]);
 
   const routeMap: Record<BottomTab, string> = {
@@ -488,9 +455,9 @@ export default function App() {
     alert('See all timeline entries');
   };
 
-  const handleFabPress = () => {
-    alert('Add new session');
-  };
+  // const handleFabPress = () => {
+  //   alert('Add new session');
+  // };
 
   // Renderizado según pestaña activa
   const renderContent = () => {
@@ -543,7 +510,7 @@ export default function App() {
           <TouchableOpacity onPress={handleSeeAll}>
             <View style={styles.seeAllButton}>
               <Text style={[styles.seeAllText, typography.label]}>See All</Text>
-              <MaterialIcons name="chevron-right" size={16} color={Colors.primary} />
+              <MaterialIcons name="chevron-right" size={16} color={colors.primary} />
             </View>
           </TouchableOpacity>
         </View>
@@ -555,426 +522,15 @@ export default function App() {
     );
   };
 
+  const styles = createTodayStyles(colors);
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
-      <TopBar onMenuPress={() => alert('Menu pressed')} onAvatarPress={() => alert('Profile pressed')} />
+      <StatusBar barStyle={mode === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+      <TopBar title="Today" mode={mode} onToggleTheme={toggleMode} onAvatarPress={() => alert('Profile pressed')} />
       {renderContent()}
       <BottomNav activeTab={activeTab} onTabPress={handleNavPress} />
-      <FAB onPress={handleFabPress} />
+      {/* <FAB onPress={handleFabPress} /> */}
     </SafeAreaView>
   );
 }
-
-// ---------------------------------------------------------------------
-// 6. Estilos
-// ---------------------------------------------------------------------
-const { width: screenWidth } = Dimensions.get('window');
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 16,
-  },
-  // Top Bar
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingBottom: 12,
-    backgroundColor: 'rgba(248, 250, 252, 0.7)', // similar to bg-slate-50/70
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 10,
-  },
-  topBarLeft: {
-    width: 40,
-  },
-  menuButton: {
-    padding: 4,
-    borderRadius: 999,
-    backgroundColor: 'rgba(0,0,0,0.05)',
-  },
-  topBarCenter: {
-    alignItems: 'center',
-  },
-  topBarTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: Colors.primary,
-  },
-  topBarDate: {
-    fontSize: 10,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    color: Colors.onSurfaceVariant,
-    marginTop: 2,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.surfaceContainerHighest,
-    borderWidth: 2,
-    borderColor: `${Colors.primary}10`,
-  },
-  // Daily Progress
-  progressSection: {
-    marginTop: 80, // espacio para la barra superior fija
-    marginBottom: 24,
-  },
-  progressLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: `${Colors.primary}70`,
-    letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  progressHeader: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 8,
-    marginBottom: 16,
-  },
-  progressCurrent: {
-    fontSize: 48,
-    fontWeight: '800',
-    color: Colors.primary,
-  },
-  progressGoal: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: Colors.onSurfaceVariant,
-  },
-  progressBarContainer: {
-    height: 8,
-    backgroundColor: Colors.surfaceContainerHigh,
-    borderRadius: 999,
-    overflow: 'hidden',
-    marginTop: 8,
-  },
-  progressSubText: {
-    fontSize: 13,
-    color: Colors.onSurfaceVariant,
-    marginTop: 4,
-    marginBottom: 6,
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: Colors.primary,
-    borderRadius: 999,
-  },
-  // Active Session Card
-  activeSessionCard: {
-    borderRadius: 32,
-    marginBottom: 24,
-    overflow: 'hidden',
-    position: 'relative',
-    backgroundColor: 'rgba(255,255,255,0.7)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  glassOverlay: {
-    position: 'absolute',
-    top: -48,
-    right: -48,
-    width: 128,
-    height: 128,
-    borderRadius: 64,
-    backgroundColor: `${Colors.tertiary}20`,
-  },
-  cardContent: {
-    padding: 32,
-    alignItems: 'center',
-  },
-  activeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: `${Colors.tertiaryContainer}10`,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-    marginBottom: 16,
-  },
-  pulseDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.tertiary,
-    position: 'absolute',
-  },
-  staticDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.tertiary,
-  },
-  activeBadgeText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    color: Colors.tertiary,
-  },
-  sessionTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: Colors.primary,
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  sessionProject: {
-    fontSize: 12,
-    color: Colors.onSurfaceVariant,
-    marginBottom: 24,
-    textAlign: 'center',
-  },
-  timerDisplay: {
-    fontSize: 56,
-    fontWeight: '800',
-    color: Colors.onSurface,
-    marginBottom: 32,
-    fontVariant: ['tabular-nums'],
-  },
-  stopButton: {
-    width: '100%',
-    borderRadius: 999,
-    overflow: 'hidden',
-  },
-  stopButtonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 16,
-  },
-  stopButtonText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: Colors.onPrimary,
-  },
-  // Timeline Header
-  timelineHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  timelineHeaderTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: Colors.primary,
-  },
-  timelineSubHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-    marginTop: 6,
-  },
-  daySummaryRow: {
-    backgroundColor: Colors.surfaceContainerLow,
-    borderRadius: 18,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    marginBottom: 10,
-  },
-  daySummaryLeft: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  daySummaryDay: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: Colors.primary,
-  },
-  daySummaryWorked: {
-    fontSize: 12,
-    color: Colors.onSurfaceVariant,
-  },
-  daySummaryBarContainer: {
-    height: 6,
-    width: '100%',
-    backgroundColor: Colors.surfaceContainerHigh,
-    borderRadius: 999,
-    overflow: 'hidden',
-  },
-  daySummaryBarFill: {
-    height: '100%',
-    backgroundColor: Colors.secondary,
-  },
-  seeAllButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  seeAllText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.primary,
-  },
-  // Timeline Items
-  timelineItem: {
-    backgroundColor: Colors.surfaceContainerLow,
-    borderRadius: 24,
-    padding: 20,
-    marginBottom: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  timelineLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    flex: 1,
-  },
-  timelineIconBg: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  timelineTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: Colors.onSurface,
-    marginBottom: 4,
-  },
-  timelineTime: {
-    fontSize: 11,
-    color: Colors.onSurfaceVariant,
-  },
-  timelineRight: {
-    alignItems: 'flex-end',
-  },
-  timelineDuration: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: Colors.primary,
-    marginBottom: 4,
-  },
-  categoryBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 999,
-  },
-  categoryText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    textTransform: 'uppercase',
-  },
-  // Bottom Navigation
-  bottomNav: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.8)',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  navItem: {
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-  },
-  navItemActive: {
-    backgroundColor: `${Colors.primary}10`,
-  },
-  navLabel: {
-    fontSize: 10,
-    marginTop: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    color: Colors.outline,
-  },
-  navLabelActive: {
-    color: Colors.primary,
-    fontWeight: 'bold',
-  },
-  // FAB
-  fab: {
-    position: 'absolute',
-    right: 24,
-    bottom: 112, // para no superponerse al bottom nav
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-    zIndex: 20,
-  },
-  fabGradient: {
-    flex: 1,
-    borderRadius: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  // Placeholders
-  placeholderScreen: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  placeholderTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: Colors.primary,
-    marginBottom: 8,
-  },
-  placeholderSub: {
-    fontSize: 16,
-    color: Colors.onSurfaceVariant,
-    textAlign: 'center',
-  },
-  noDaysCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: Colors.surfaceContainerHigh,
-    backgroundColor: Colors.surfaceContainerLowest,
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  noDaysText: {
-    fontSize: 14,
-    color: Colors.onSurfaceVariant,
-    fontWeight: '600',
-  },
-});

@@ -1,68 +1,28 @@
 import { BottomNav, BottomTab } from '@/components/BottomNav';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
+import * as Sharing from 'expo-sharing';
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
-  Dimensions,
+  Animated,
   Modal,
-  Platform,
+  NativeModules,
+  Pressable,
   ScrollView,
   StatusBar,
-  StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { captureRef } from 'react-native-view-shot';
+import { createCurrentWeekStyles } from './tabStyles';
+import { useAppTheme } from './ThemeContext';
+import { TopBar } from './TopBar';
 
-// ---------------------------------------------------------------------
-// 1. Color Palette (from the original Tailwind config)
-// ---------------------------------------------------------------------
-const Colors = {
-  primary: '#004f59',
-  onPrimary: '#ffffff',
-  primaryContainer: '#006975',
-  onPrimaryContainer: '#6beaff',
-  primaryFixed: '#9cf0ff',
-  primaryFixedDim: '#00daf3',
-  secondary: '#4c56af',
-  onSecondary: '#ffffff',
-  secondaryContainer: '#959efd',
-  onSecondaryContainer: '#27308a',
-  secondaryFixed: '#e0e0ff',
-  secondaryFixedDim: '#bdc2ff',
-  tertiary: '#00531e',
-  onTertiary: '#ffffff',
-  tertiaryContainer: '#006e2a',
-  onTertiaryContainer: '#54f67a',
-  tertiaryFixed: '#69ff87',
-  tertiaryFixedDim: '#3ce36a',
-  error: '#ba1a1a',
-  onError: '#ffffff',
-  errorContainer: '#ffdad6',
-  onErrorContainer: '#93000a',
-  background: '#f7f9fc',
-  onBackground: '#191c1e',
-  surface: '#f7f9fc',
-  onSurface: '#191c1e',
-  surfaceVariant: '#e0e3e6',
-  onSurfaceVariant: '#424654',
-  surfaceContainerLowest: '#ffffff',
-  surfaceContainerLow: '#f2f4f7',
-  surfaceContainer: '#eceef1',
-  surfaceContainerHigh: '#e6e8eb',
-  surfaceContainerHighest: '#e0e3e6',
-  inverseSurface: '#2d3133',
-  inverseOnSurface: '#eff1f4',
-  inversePrimary: '#00daf3',
-  outline: '#737785',
-  outlineVariant: '#c3c6d6',
-  surfaceTint: '#006875',
-};
+const isBlurAvailable = !!NativeModules.ExpoBlur;
 
 // ---------------------------------------------------------------------
 // 2. Typography Helpers (using system fonts)
@@ -75,6 +35,12 @@ const useTypography = () => {
   const label = { fontWeight: '600' as const };
 
   return { fontsLoaded, headline, body, label };
+};
+
+const useCurrentWeekStyles = () => {
+  const { colors } = useAppTheme();
+  const styles = createCurrentWeekStyles(colors);
+  return { styles, colors };
 };
 
 // ---------------------------------------------------------------------
@@ -115,22 +81,17 @@ const weeksData: WeekData[] = []; // Eliminar registros placeholder, iniciar vac
 type WeekCardProps = {
   data: WeekData;
   onEdit: (week: WeekData) => void;
+  onDelete: (week: WeekData) => void;
+  onView: (week: WeekData) => void;
 };
 
-const WeekCard = ({ data, onEdit }: WeekCardProps) => {
-  const router = useRouter();
+const WeekCard = ({ data, onEdit, onDelete, onView }: WeekCardProps) => {
   const { headline, body, label } = useTypography();
-
-  const handlePress = () => {
-    router.push({
-      pathname: '/week-details',
-      params: { weekId: data.id },
-    });
-  };
+  const { styles, colors } = useCurrentWeekStyles();
 
   return (
     <View style={styles.weekCard}>
-      <TouchableOpacity style={styles.weekCardTouchable} onPress={handlePress} activeOpacity={0.85}>
+      <TouchableOpacity style={styles.weekCardTouchable} onPress={() => onView(data)} activeOpacity={0.85}>
         {data.isActive && (
           <View style={styles.activeBadge}>
             <Text style={[styles.activeBadgeText, label]}>Active</Text>
@@ -177,14 +138,14 @@ const WeekCard = ({ data, onEdit }: WeekCardProps) => {
                 style={[
                   styles.dayCircle,
                   isActive
-                    ? { backgroundColor: Colors.primaryFixed }
-                    : { backgroundColor: Colors.surfaceContainerHigh },
+                    ? { backgroundColor: colors.primaryFixed }
+                    : { backgroundColor: colors.surfaceContainerHigh },
                 ]}
               >
                 <Text
                   style={[
                     styles.dayLetter,
-                    isActive ? { color: Colors.primary } : { color: Colors.outline },
+                    isActive ? { color: colors.primary } : { color: colors.outline },
                     label,
                   ]}
                 >
@@ -194,14 +155,410 @@ const WeekCard = ({ data, onEdit }: WeekCardProps) => {
             );
           })}
         </View>
-        <MaterialIcons name="arrow-forward" size={20} color={Colors.outlineVariant} />
+        <MaterialIcons name="arrow-forward" size={20} color={colors.outlineVariant} />
       </View>
     </TouchableOpacity>
-    <TouchableOpacity style={styles.editWeekButton} onPress={() => onEdit(data)}>
-      <MaterialIcons name="edit" size={16} color={Colors.primary} />
-      <Text style={[styles.editWeekText, body]}>Edit</Text>
-    </TouchableOpacity>
+    <View style={{ flexDirection: 'row', borderTopWidth: 1, borderTopColor: colors.surfaceContainerHigh }}>
+      <TouchableOpacity
+        style={[styles.editWeekButton, { flex: 1 }]}
+        onPress={() => onEdit(data)}
+      >
+        <MaterialIcons name="edit" size={16} color={colors.primary} />
+        <Text style={[styles.editWeekText, body]}>Edit</Text>
+      </TouchableOpacity>
+      <View style={{ width: 1, backgroundColor: colors.surfaceContainerHigh }} />
+      <TouchableOpacity
+        style={[styles.editWeekButton, { flex: 1 }]}
+        onPress={() => onDelete(data)}
+      >
+        <MaterialIcons name="delete-outline" size={16} color={colors.error} />
+        <Text style={[styles.editWeekText, { color: colors.error }, body]}>Delete</Text>
+      </TouchableOpacity>
+    </View>
   </View>
+  );
+};
+
+// ---- Week View Modal ----
+type WeekViewModalProps = {
+  week: WeekData | null;
+  onClose: () => void;
+  onAlert: (title: string, message: string, type: 'success' | 'error') => void;
+};
+
+const WeekViewModal = ({ week, onClose, onAlert }: WeekViewModalProps) => {
+  const { headline, body, label } = useTypography();
+  const { styles, colors } = useCurrentWeekStyles();
+  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  const slideAnim = React.useRef(new Animated.Value(60)).current;
+
+  React.useEffect(() => {
+    if (week) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, { toValue: 1, duration: 220, useNativeDriver: true }),
+        Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, damping: 20, stiffness: 200 }),
+      ]).start();
+    } else {
+      fadeAnim.setValue(0);
+      slideAnim.setValue(60);
+    }
+  }, [week]);
+
+  const shareCardRef = React.useRef<any>(null);
+  const [isSharing, setIsSharing] = React.useState(false);
+
+  if (!week) return null;
+
+  const letters = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  const handleShare = async () => {
+    if (!shareCardRef.current) return;
+    try {
+      setIsSharing(true);
+      // Small delay to ensure the hidden view has fully rendered
+      await new Promise(resolve => setTimeout(resolve, 100));
+      const uri = await captureRef(shareCardRef, { format: 'png', quality: 1 });
+      await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Share week summary' });
+    } catch {
+      onAlert('Error', 'Could not share the week summary.', 'error');
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  const cardStyle = [
+    {
+      width: '100%' as const,
+      maxHeight: '80%' as const,
+      backgroundColor: colors.surface,
+      borderRadius: 28,
+      overflow: 'hidden' as const,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 12 },
+      shadowOpacity: 0.35,
+      shadowRadius: 24,
+      elevation: 20,
+    },
+    { transform: [{ translateY: slideAnim }] },
+  ];
+
+  const accentColor = week.barColor ?? colors.primary;
+  const goalReached = week.goalPercentage >= 100;
+
+  const overlayContent = (
+    <>
+      <Pressable style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} onPress={onClose} />
+
+      <Animated.View style={cardStyle}>
+        {/* Accent strip */}
+        <View style={{ height: 4, backgroundColor: accentColor }} />
+
+        {/* Hero Header */}
+        <View style={{ backgroundColor: accentColor + '12', padding: 20, paddingBottom: 22 }}>
+          {/* Action buttons */}
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginBottom: 16 }}>
+            <TouchableOpacity
+              onPress={handleShare}
+              disabled={isSharing}
+              style={{
+                width: 34, height: 34, borderRadius: 17,
+                backgroundColor: colors.surface + 'cc',
+                justifyContent: 'center', alignItems: 'center',
+                opacity: isSharing ? 0.4 : 1,
+              }}
+            >
+              <MaterialIcons name="share" size={17} color={colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={onClose}
+              style={{
+                width: 34, height: 34, borderRadius: 17,
+                backgroundColor: colors.surface + 'cc',
+                justifyContent: 'center', alignItems: 'center',
+              }}
+            >
+              <MaterialIcons name="close" size={19} color={colors.onSurface} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Date label */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 }}>
+            <MaterialIcons name="date-range" size={12} color={accentColor} />
+            <Text style={[{ fontSize: 12, color: accentColor }, label]}>{week.dateRange}</Text>
+          </View>
+
+          {/* Total hours */}
+          <Text style={[{ fontSize: 48, color: colors.onSurface, lineHeight: 52 }, headline]}>
+            {week.totalHours}
+          </Text>
+          <Text style={[{ fontSize: 12, color: colors.onSurfaceVariant, marginTop: 3 }, body]}>
+            total this week
+          </Text>
+
+          {/* Badges */}
+          {(week.isActive || week.customLabel) && (
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+              {week.isActive && (
+                <View style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 5,
+                  backgroundColor: accentColor, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999,
+                }}>
+                  <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.7)' }} />
+                  <Text style={[{ fontSize: 11, color: '#fff' }, label]}>Active</Text>
+                </View>
+              )}
+              {week.customLabel && (
+                <View style={{
+                  backgroundColor: (week.customLabelColor ?? colors.primary) + '22',
+                  paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999,
+                  borderWidth: 1, borderColor: (week.customLabelColor ?? colors.primary) + '55',
+                }}>
+                  <Text style={[{ fontSize: 11, color: week.customLabelColor ?? colors.primary }, label]}>
+                    {week.customLabel}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+        </View>
+
+        <ScrollView
+          contentContainerStyle={{ padding: 16, gap: 12 }}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Metrics strip */}
+          <View style={{ backgroundColor: colors.surfaceContainerLow, borderRadius: 20, overflow: 'hidden' }}>
+            <View style={{ flexDirection: 'row' }}>
+              <View style={{ flex: 1, padding: 16, alignItems: 'center' }}>
+                <Text style={[{ fontSize: 28, color: colors.onSurface }, headline]}>{week.activeDays}</Text>
+                <Text style={[{ fontSize: 11, color: colors.onSurfaceVariant, textAlign: 'center', marginTop: 3 }, body]}>
+                  active{'\n'}days
+                </Text>
+              </View>
+              <View style={{ width: 1, backgroundColor: colors.surfaceContainerHigh, marginVertical: 12 }} />
+              <View style={{ flex: 1, padding: 16, alignItems: 'center' }}>
+                <Text style={[{ fontSize: 28, color: colors.onSurface }, headline]}>{week.totalDays}</Text>
+                <Text style={[{ fontSize: 11, color: colors.onSurfaceVariant, textAlign: 'center', marginTop: 3 }, body]}>
+                  total{'\n'}days
+                </Text>
+              </View>
+              <View style={{ width: 1, backgroundColor: colors.surfaceContainerHigh, marginVertical: 12 }} />
+              <View style={{
+                flex: 1, padding: 16, alignItems: 'center',
+                backgroundColor: goalReached ? accentColor + '18' : 'transparent',
+              }}>
+                <Text style={[{ fontSize: 28, color: goalReached ? accentColor : colors.onSurface }, headline]}>
+                  {week.goalPercentage}%
+                </Text>
+                <Text style={[{ fontSize: 11, color: goalReached ? accentColor : colors.onSurfaceVariant, textAlign: 'center', marginTop: 3 }, body]}>
+                  {goalReached ? 'goal ✓' : 'of goal'}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Progress */}
+          <View style={{ backgroundColor: colors.surfaceContainerLow, borderRadius: 20, padding: 16 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
+              <Text style={[{ fontSize: 13, color: colors.onSurfaceVariant }, label]}>Weekly progress</Text>
+              <Text style={[{ fontSize: 22, color: accentColor }, headline]}>{week.goalPercentage}%</Text>
+            </View>
+            <View style={{ height: 12, backgroundColor: colors.surfaceContainerHigh, borderRadius: 999, overflow: 'hidden' }}>
+              <View style={{
+                height: '100%',
+                width: `${Math.min(week.goalPercentage, 100)}%`,
+                backgroundColor: accentColor,
+                borderRadius: 999,
+              }} />
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 5 }}>
+              <Text style={[{ fontSize: 10, color: colors.onSurfaceVariant }, body]}>0%</Text>
+              <Text style={[{ fontSize: 10, color: colors.onSurfaceVariant }, body]}>100%</Text>
+            </View>
+          </View>
+
+          {/* Daily breakdown */}
+          {week.dayEntries && week.dayEntries.length > 0 && (
+            <View style={{ backgroundColor: colors.surfaceContainerLow, borderRadius: 20, padding: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 14 }}>
+                <MaterialIcons name="view-list" size={14} color={colors.onSurfaceVariant} />
+                <Text style={[{ fontSize: 13, color: colors.onSurfaceVariant }, label]}>Daily breakdown</Text>
+              </View>
+              {week.dayEntries.map((entry, idx) => {
+                const dayLabel = letters[idx] ?? `D${idx + 1}`;
+                const isActive = entry.hours > 0;
+                const maxHrs = Math.max(...week.dayEntries!.map((e) => e.hours), 1);
+                const pct = (entry.hours / maxHrs) * 100;
+                return (
+                  <View
+                    key={idx}
+                    style={{
+                      flexDirection: 'row', alignItems: 'center', gap: 10,
+                      marginBottom: idx < week.dayEntries!.length - 1 ? 10 : 0,
+                    }}
+                  >
+                    <View style={{
+                      width: 36, height: 36, borderRadius: 10,
+                      backgroundColor: isActive ? accentColor : colors.surfaceContainerHigh,
+                      justifyContent: 'center', alignItems: 'center',
+                    }}>
+                      <Text style={[{ fontSize: 10, color: isActive ? '#fff' : colors.outline }, label]}>
+                        {dayLabel}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1, height: 6, backgroundColor: colors.surfaceContainerHigh, borderRadius: 999, overflow: 'hidden' }}>
+                      <View style={{
+                        height: '100%', width: `${pct}%`,
+                        backgroundColor: accentColor, borderRadius: 999,
+                        opacity: isActive ? 1 : 0,
+                      }} />
+                    </View>
+                    <Text style={[{ fontSize: 12, color: isActive ? colors.onSurface : colors.outline, width: 40, textAlign: 'right' }, label]}>
+                      {formatEntryTime(entry.hours)}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+        </ScrollView>
+      </Animated.View>
+    </>
+  );
+
+  const sharedStyle = { flex: 1, justifyContent: 'center' as const, alignItems: 'center' as const, padding: 24 };
+
+  // Full-content card for sharing (off-screen, no scroll/height constraints)
+  const shareCardContent = (
+    <View
+      ref={shareCardRef}
+      style={{
+        position: 'absolute',
+        left: -9999,
+        top: 0,
+        width: 380,
+        backgroundColor: colors.surface,
+        borderRadius: 28,
+        overflow: 'hidden',
+      }}
+      collapsable={false}
+    >
+      {/* Accent strip */}
+      <View style={{ height: 4, backgroundColor: accentColor }} />
+
+      {/* Hero Header */}
+      <View style={{ backgroundColor: accentColor + '12', padding: 20, paddingBottom: 22 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 }}>
+          <MaterialIcons name="date-range" size={12} color={accentColor} />
+          <Text style={[{ fontSize: 12, color: accentColor }, label]}>{week.dateRange}</Text>
+        </View>
+        <Text style={[{ fontSize: 48, color: colors.onSurface, lineHeight: 52 }, headline]}>
+          {week.totalHours}
+        </Text>
+        <Text style={[{ fontSize: 12, color: colors.onSurfaceVariant, marginTop: 3 }, body]}>
+          total this week
+        </Text>
+        {(week.isActive || week.customLabel) && (
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+            {week.isActive && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: accentColor, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 }}>
+                <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.7)' }} />
+                <Text style={[{ fontSize: 11, color: '#fff' }, label]}>Active</Text>
+              </View>
+            )}
+            {week.customLabel && (
+              <View style={{ backgroundColor: (week.customLabelColor ?? colors.primary) + '22', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1, borderColor: (week.customLabelColor ?? colors.primary) + '55' }}>
+                <Text style={[{ fontSize: 11, color: week.customLabelColor ?? colors.primary }, label]}>{week.customLabel}</Text>
+              </View>
+            )}
+          </View>
+        )}
+      </View>
+
+      {/* Content */}
+      <View style={{ padding: 16, gap: 12 }}>
+        {/* Metrics */}
+        <View style={{ backgroundColor: colors.surfaceContainerLow, borderRadius: 20, overflow: 'hidden' }}>
+          <View style={{ flexDirection: 'row' }}>
+            <View style={{ flex: 1, padding: 16, alignItems: 'center' }}>
+              <Text style={[{ fontSize: 28, color: colors.onSurface }, headline]}>{week.activeDays}</Text>
+              <Text style={[{ fontSize: 11, color: colors.onSurfaceVariant, textAlign: 'center', marginTop: 3 }, body]}>active{'\n'}days</Text>
+            </View>
+            <View style={{ width: 1, backgroundColor: colors.surfaceContainerHigh, marginVertical: 12 }} />
+            <View style={{ flex: 1, padding: 16, alignItems: 'center' }}>
+              <Text style={[{ fontSize: 28, color: colors.onSurface }, headline]}>{week.totalDays}</Text>
+              <Text style={[{ fontSize: 11, color: colors.onSurfaceVariant, textAlign: 'center', marginTop: 3 }, body]}>total{'\n'}days</Text>
+            </View>
+            <View style={{ width: 1, backgroundColor: colors.surfaceContainerHigh, marginVertical: 12 }} />
+            <View style={{ flex: 1, padding: 16, alignItems: 'center', backgroundColor: goalReached ? accentColor + '18' : 'transparent' }}>
+              <Text style={[{ fontSize: 28, color: goalReached ? accentColor : colors.onSurface }, headline]}>{week.goalPercentage}%</Text>
+              <Text style={[{ fontSize: 11, color: goalReached ? accentColor : colors.onSurfaceVariant, textAlign: 'center', marginTop: 3 }, body]}>{goalReached ? 'goal ✓' : 'of goal'}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Progress */}
+        <View style={{ backgroundColor: colors.surfaceContainerLow, borderRadius: 20, padding: 16 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
+            <Text style={[{ fontSize: 13, color: colors.onSurfaceVariant }, label]}>Weekly progress</Text>
+            <Text style={[{ fontSize: 22, color: accentColor }, headline]}>{week.goalPercentage}%</Text>
+          </View>
+          <View style={{ height: 12, backgroundColor: colors.surfaceContainerHigh, borderRadius: 999, overflow: 'hidden' }}>
+            <View style={{ height: '100%', width: `${Math.min(week.goalPercentage, 100)}%`, backgroundColor: accentColor, borderRadius: 999 }} />
+          </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 5 }}>
+            <Text style={[{ fontSize: 10, color: colors.onSurfaceVariant }, body]}>0%</Text>
+            <Text style={[{ fontSize: 10, color: colors.onSurfaceVariant }, body]}>100%</Text>
+          </View>
+        </View>
+
+        {/* Daily breakdown */}
+        {week.dayEntries && week.dayEntries.length > 0 && (
+          <View style={{ backgroundColor: colors.surfaceContainerLow, borderRadius: 20, padding: 16 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 14 }}>
+              <MaterialIcons name="view-list" size={14} color={colors.onSurfaceVariant} />
+              <Text style={[{ fontSize: 13, color: colors.onSurfaceVariant }, label]}>Daily breakdown</Text>
+            </View>
+            {week.dayEntries.map((entry, idx) => {
+              const dayLabel = letters[idx] ?? `D${idx + 1}`;
+              const isActive = entry.hours > 0;
+              const maxHrs = Math.max(...week.dayEntries!.map((e) => e.hours), 1);
+              const pct = (entry.hours / maxHrs) * 100;
+              return (
+                <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: idx < week.dayEntries!.length - 1 ? 10 : 0 }}>
+                  <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: isActive ? accentColor : colors.surfaceContainerHigh, justifyContent: 'center', alignItems: 'center' }}>
+                    <Text style={[{ fontSize: 10, color: isActive ? '#fff' : colors.outline }, label]}>{dayLabel}</Text>
+                  </View>
+                  <View style={{ flex: 1, height: 6, backgroundColor: colors.surfaceContainerHigh, borderRadius: 999, overflow: 'hidden' }}>
+                    <View style={{ height: '100%', width: `${pct}%`, backgroundColor: accentColor, borderRadius: 999, opacity: isActive ? 1 : 0 }} />
+                  </View>
+                  <Text style={[{ fontSize: 12, color: isActive ? colors.onSurface : colors.outline, width: 40, textAlign: 'right' }, label]}>
+                    {formatEntryTime(entry.hours)}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        )}
+      </View>
+    </View>
+  );
+
+  return (
+    <Modal visible={!!week} transparent animationType="none" onRequestClose={onClose}>
+      <Animated.View style={[{ flex: 1 }, { opacity: fadeAnim }]}>
+        {isBlurAvailable ? (
+          <BlurView intensity={60} tint="dark" style={sharedStyle}>
+            {overlayContent}
+          </BlurView>
+        ) : (
+          <View style={[sharedStyle, { backgroundColor: 'rgba(0,0,0,0.75)' }]}>
+            {overlayContent}
+          </View>
+        )}
+        {shareCardContent}
+      </Animated.View>
+    </Modal>
   );
 };
 
@@ -213,6 +570,16 @@ const formatHoursLabel = (totalHours: number) => {
   const h = Math.floor(totalHours);
   const m = Math.round((totalHours % 1) * 60);
   return `${h}h ${m.toString().padStart(2, '0')}m`;
+};
+
+// Short time display for individual entries: "45m", "1h", "1h 30m"
+const formatEntryTime = (hours: number): string => {
+  if (hours <= 0) return '—';
+  const h = Math.floor(hours);
+  const m = Math.round((hours % 1) * 60);
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
 };
 
 const addDays = (date: Date, days: number) => {
@@ -231,18 +598,24 @@ const isValidIsoDate = (value: string) => {
 // ---------------------------------------------------------------------
 export default function CurrentWeek() {
   const router = useRouter();
-  const { fontsLoaded, headline, body } = useTypography();
+  const { mode, colors, toggleMode } = useAppTheme();
+  const { fontsLoaded, headline, body, label } = useTypography();
   const insets = useSafeAreaInsets();
 
   const [activeAppTab, setActiveAppTab] = useState<BottomTab>('weekly');
+  const [selectedWeekForView, setSelectedWeekForView] = useState<WeekData | null>(null);
+  const styles = createCurrentWeekStyles(colors);
   const [weeks, setWeeks] = useState<WeekData[]>(weeksData);
   const [showWeekModal, setShowWeekModal] = useState(false);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [selectedWeekId, setSelectedWeekId] = useState<string | null>(null);
+  const [weekToDelete, setWeekToDelete] = useState<WeekData | null>(null);
   const [weekStart, setWeekStart] = useState('');
   const [weekDays, setWeekDays] = useState(5);
-  const [dayHours, setDayHours] = useState<number[]>(Array(5).fill(0));
+  const [dayMinutes, setDayMinutes] = useState<number[]>(Array(5).fill(0));
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [datePickerTemp, setDatePickerTemp] = useState('');
+  const [appAlert, setAppAlert] = useState<{ title: string; message: string; type: 'success' | 'error' } | null>(null);
 
   const routeMap: Record<BottomTab, string> = {
     today: '/today',
@@ -260,6 +633,7 @@ export default function CurrentWeek() {
   };
 
   const today = new Date();
+  const formattedDate = today.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const minStartDate = addDays(today, -6);
 
   const adjustWeekStart = (offsetDays: number) => {
@@ -279,14 +653,18 @@ export default function CurrentWeek() {
     setSelectedWeekId(week.id);
     setWeekStart(week.startDate ?? '');
     setWeekDays(week.totalDays);
-    setDayHours(week.dayEntries?.map((entry) => entry.hours) ?? Array(week.totalDays).fill(0));
+    setDayMinutes(week.dayEntries?.map((entry) => Math.round(entry.hours * 60)) ?? Array(week.totalDays).fill(0));
     setShowWeekModal(true);
+  };
+
+  const handleDeleteWeek = (week: WeekData) => {
+    setWeekToDelete(week);
   };
 
   const handleDayCountChange = (value: number) => {
     const newCount = Math.min(7, Math.max(1, value));
     setWeekDays(newCount);
-    setDayHours((prev) => {
+    setDayMinutes((prev) => {
       const next = [...prev];
       while (next.length < newCount) next.push(0);
       next.length = newCount;
@@ -297,25 +675,25 @@ export default function CurrentWeek() {
   const resetWeekForm = () => {
     setWeekStart('');
     setWeekDays(5);
-    setDayHours(Array(5).fill(0));
+    setDayMinutes(Array(5).fill(0));
     setSelectedWeekId(null);
     setModalMode('create');
   };
 
   const handleSaveWeek = async () => {
     if (!isValidIsoDate(weekStart)) {
-      Alert.alert('Invalid date', 'Please enter start date in YYYY-MM-DD format.');
+      setAppAlert({ title: 'Invalid date', message: 'Please enter start date in YYYY-MM-DD format.', type: 'error' });
       return;
     }
 
     const start = new Date(`${weekStart}T00:00:00`);
     if (start > today || start < minStartDate) {
-      Alert.alert('Date out of range', 'Start date must be between 6 days ago and today.');
+      setAppAlert({ title: 'Date out of range', message: 'Start date must be between 6 days ago and today.', type: 'error' });
       return;
     }
 
     if (weekDays < 1 || weekDays > 7) {
-      Alert.alert('Invalid week length', 'Weeks must contain 1 to 7 days.');
+      setAppAlert({ title: 'Invalid week length', message: 'Weeks must contain 1 to 7 days.', type: 'error' });
       return;
     }
 
@@ -323,7 +701,8 @@ export default function CurrentWeek() {
     let total = 0;
     for (let i = 0; i < weekDays; i++) {
       const dayDate = addDays(start, i);
-      const hours = Number(dayHours[i] ?? 0);
+      const mins = dayMinutes[i] ?? 0;
+      const hours = mins / 60;
       dayEntries.push({ date: dayDate.toISOString().slice(0, 10), hours });
       total += hours > 0 ? hours : 0;
     }
@@ -342,15 +721,15 @@ export default function CurrentWeek() {
       dayEntries,
       startDate: start.toISOString().slice(0, 10),
       endDate: end.toISOString().slice(0, 10),
-      barColor: Colors.secondaryContainer,
+      barColor: colors.secondaryContainer,
     };
 
     if (modalMode === 'edit' && selectedWeekId) {
       setWeeks((prev) => prev.map((w) => (w.id === selectedWeekId ? newWeek : w)));
-      Alert.alert('Week updated', 'Week changes have been saved.');
+      setAppAlert({ title: 'Week updated', message: 'Week changes have been saved.', type: 'success' });
     } else {
       setWeeks((prev) => [newWeek, ...prev]);
-      Alert.alert('Week created', 'New week created successfully.');
+      setAppAlert({ title: 'Week created', message: 'New week created successfully.', type: 'success' });
     }
 
     setShowWeekModal(false);
@@ -425,21 +804,20 @@ export default function CurrentWeek() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
-      <View style={[styles.topBar, { paddingTop: insets.top || 16 }]}> 
-        <View style={styles.profileSection}>
-          <Text style={[styles.logoText, headline]}>Weekly</Text>
-        </View>
-        <TouchableOpacity onPress={() => alert('Settings')}>
-          <MaterialIcons name="settings" size={24} color={Colors.primary} />
-        </TouchableOpacity>
-      </View>
+      <StatusBar barStyle={mode === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+      <TopBar
+        title="Current Week"
+        mode={mode}
+        onToggleTheme={toggleMode}
+        onAvatarPress={() => alert('Profile pressed')}
+      />
+
       {/* Main Content */}
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: insets.bottom + 20 },
+          { paddingBottom: insets.bottom + 100 },
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -455,13 +833,13 @@ export default function CurrentWeek() {
         {/* Action Buttons */}
         <View style={styles.actionRow}>
           <TouchableOpacity
-            style={[styles.outlineButton, { backgroundColor: Colors.surfaceContainerHigh }]}
+            style={[styles.outlineButton, { backgroundColor: colors.surfaceContainerHigh }]}
             onPress={() => {
               setModalMode('create');
               setShowWeekModal(true);
             }}
           >
-            <MaterialIcons name="add" size={24} color={Colors.primary} />
+            <MaterialIcons name="add" size={24} color={colors.primary} />
             <Text style={[styles.outlineButtonText, headline]}>Add Week</Text>
           </TouchableOpacity>
         </View>
@@ -480,30 +858,16 @@ export default function CurrentWeek() {
                 <Text style={styles.modalLabel}>Start date *</Text>
                 <TouchableOpacity
                   style={[styles.modalInput, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
-                  onPress={() => setShowDatePicker(true)}
+                  onPress={() => {
+                    setDatePickerTemp(weekStart);
+                    setShowDatePicker(true);
+                  }}
                 >
-                  <Text style={{ color: weekStart ? Colors.onSurface : Colors.onSurfaceVariant }}>
+                  <Text style={{ color: weekStart ? colors.onSurface : colors.onSurfaceVariant }}>
                     {weekStart || 'Select start date'}
                   </Text>
-                  <Text style={{ color: Colors.onSurfaceVariant }}>📅</Text>
+                  <MaterialIcons name="calendar-today" size={16} color={colors.onSurfaceVariant} />
                 </TouchableOpacity>
-
-                {showDatePicker && Platform.OS !== 'web' && (
-                  <DateTimePicker
-                    value={isValidIsoDate(weekStart) ? new Date(`${weekStart}T00:00:00`) : today}
-                    mode="date"
-                    display="default"
-                    maximumDate={today}
-                    minimumDate={minStartDate}
-                    onChange={(_, selectedDate) => {
-                      setShowDatePicker(false);
-                      if (selectedDate) {
-                        const iso = selectedDate.toISOString().slice(0, 10);
-                        setWeekStart(iso);
-                      }
-                    }}
-                  />
-                )}
 
                 <Text style={styles.modalLabel}>Days in week (1-7)</Text>
                 <View style={styles.rowInput}>
@@ -522,29 +886,90 @@ export default function CurrentWeek() {
                 </TouchableOpacity>
               </View>
 
-              <Text style={styles.modalLabel}>Hours per day</Text>
+              <Text style={styles.modalLabel}>Time per day</Text>
               {Array.from({ length: weekDays }).map((_, index) => {
                 let dayDateLabel = '';
                 if (isValidIsoDate(weekStart)) {
                   dayDateLabel = formatDateLabel(addDays(new Date(`${weekStart}T00:00:00`), index));
                 }
+                const totalMins = dayMinutes[index] ?? 0;
+                const displayH = Math.floor(totalMins / 60);
+                const displayM = totalMins % 60;
                 return (
-                  <View key={index} style={styles.dayEntryRow}>
-                    <Text style={styles.dayEntryLabel}>Day {index + 1}{dayDateLabel ? ` (${dayDateLabel})` : ''}</Text>
-                    <TextInput
-                      style={styles.modalInput}
-                      placeholder="0"
-                      value={dayHours[index]?.toString() ?? '0'}
-                      keyboardType="decimal-pad"
-                      onChangeText={(text) => {
-                        const parsed = Number(text.replace(',', '.'));
-                        setDayHours((prev) => {
-                          const next = [...prev];
-                          next[index] = Number.isNaN(parsed) ? 0 : Math.max(0, parsed);
-                          return next;
-                        });
-                      }}
-                    />
+                  <View key={index} style={{ marginBottom: 14 }}>
+                    <Text style={styles.dayEntryLabel}>
+                      Day {index + 1}{dayDateLabel ? ` · ${dayDateLabel}` : ''}
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: 10, marginTop: 6 }}>
+                      {/* Hours stepper */}
+                      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceContainerHigh, borderRadius: 12, overflow: 'hidden' }}>
+                        <TouchableOpacity
+                          style={{ paddingHorizontal: 14, paddingVertical: 10 }}
+                          onPress={() => {
+                            setDayMinutes(prev => {
+                              const next = [...prev];
+                              const m = (next[index] ?? 0) % 60;
+                              const newH = Math.max(0, Math.floor((next[index] ?? 0) / 60) - 1);
+                              next[index] = newH * 60 + m;
+                              return next;
+                            });
+                          }}
+                        >
+                          <MaterialIcons name="remove" size={18} color={colors.primary} />
+                        </TouchableOpacity>
+                        <Text style={[{ flex: 1, textAlign: 'center', fontSize: 16, color: displayH > 0 ? colors.onSurface : colors.onSurfaceVariant }, label]}>
+                          {displayH}h
+                        </Text>
+                        <TouchableOpacity
+                          style={{ paddingHorizontal: 14, paddingVertical: 10 }}
+                          onPress={() => {
+                            setDayMinutes(prev => {
+                              const next = [...prev];
+                              const m = (next[index] ?? 0) % 60;
+                              const newH = Math.min(23, Math.floor((next[index] ?? 0) / 60) + 1);
+                              next[index] = newH * 60 + m;
+                              return next;
+                            });
+                          }}
+                        >
+                          <MaterialIcons name="add" size={18} color={colors.primary} />
+                        </TouchableOpacity>
+                      </View>
+                      {/* Minutes stepper */}
+                      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceContainerHigh, borderRadius: 12, overflow: 'hidden' }}>
+                        <TouchableOpacity
+                          style={{ paddingHorizontal: 14, paddingVertical: 10 }}
+                          onPress={() => {
+                            setDayMinutes(prev => {
+                              const next = [...prev];
+                              const h = Math.floor((next[index] ?? 0) / 60);
+                              const newM = Math.max(0, ((next[index] ?? 0) % 60) - 5);
+                              next[index] = h * 60 + newM;
+                              return next;
+                            });
+                          }}
+                        >
+                          <MaterialIcons name="remove" size={18} color={colors.primary} />
+                        </TouchableOpacity>
+                        <Text style={[{ flex: 1, textAlign: 'center', fontSize: 16, color: displayM > 0 ? colors.onSurface : colors.onSurfaceVariant }, label]}>
+                          {displayM.toString().padStart(2, '0')}m
+                        </Text>
+                        <TouchableOpacity
+                          style={{ paddingHorizontal: 14, paddingVertical: 10 }}
+                          onPress={() => {
+                            setDayMinutes(prev => {
+                              const next = [...prev];
+                              const h = Math.floor((next[index] ?? 0) / 60);
+                              const newM = Math.min(55, ((next[index] ?? 0) % 60) + 5);
+                              next[index] = h * 60 + newM;
+                              return next;
+                            });
+                          }}
+                        >
+                          <MaterialIcons name="add" size={18} color={colors.primary} />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
                   </View>
                 );
               })}
@@ -580,8 +1005,277 @@ export default function CurrentWeek() {
             <Text style={[styles.emptyText, body]}>No weeks yet. Create one to begin tracking your hours.</Text>
           </View>
         ) : (
-          weeks.map((week) => <WeekCard key={week.id} data={week} onEdit={handleEditWeek} />)
+          weeks.map((week) => (
+            <WeekCard
+              key={week.id}
+              data={week}
+              onEdit={handleEditWeek}
+              onDelete={handleDeleteWeek}
+              onView={(w) => setSelectedWeekForView(w)}
+            />
+          ))
         )}
+
+        <WeekViewModal
+          week={selectedWeekForView}
+          onClose={() => setSelectedWeekForView(null)}
+          onAlert={(title, message, type) => setAppAlert({ title, message, type })}
+        />
+
+        {/* Delete confirmation modal */}
+        <Modal visible={!!weekToDelete} transparent animationType="fade" onRequestClose={() => setWeekToDelete(null)}>
+          <Pressable
+            style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}
+            onPress={() => setWeekToDelete(null)}
+          >
+            <Pressable
+              style={{
+                backgroundColor: colors.surface,
+                borderTopLeftRadius: 28,
+                borderTopRightRadius: 28,
+                padding: 24,
+                paddingBottom: insets.bottom + 24,
+              }}
+              onPress={() => {}}
+            >
+              {/* Handle */}
+              <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: colors.outlineVariant, alignSelf: 'center', marginBottom: 20 }} />
+
+              {/* Icon */}
+              <View style={{
+                width: 56, height: 56, borderRadius: 28,
+                backgroundColor: colors.errorContainer,
+                justifyContent: 'center', alignItems: 'center',
+                alignSelf: 'center', marginBottom: 16,
+              }}>
+                <MaterialIcons name="delete-outline" size={28} color={colors.error} />
+              </View>
+
+              <Text style={[{ fontSize: 18, color: colors.onSurface, textAlign: 'center', marginBottom: 8 }, headline]}>
+                Delete week?
+              </Text>
+              <Text style={[{ fontSize: 14, color: colors.onSurfaceVariant, textAlign: 'center', lineHeight: 20, marginBottom: 28 }, body]}>
+                {weekToDelete?.dateRange}
+                {'\n'}This action cannot be undone.
+              </Text>
+
+              <TouchableOpacity
+                style={{
+                  backgroundColor: colors.error,
+                  borderRadius: 14,
+                  paddingVertical: 14,
+                  alignItems: 'center',
+                  marginBottom: 10,
+                }}
+                onPress={() => {
+                  setWeeks((prev) => prev.filter((w) => w.id !== weekToDelete!.id));
+                  setWeekToDelete(null);
+                }}
+              >
+                <Text style={[{ fontSize: 15, color: '#fff' }, headline]}>Delete</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={{
+                  backgroundColor: colors.surfaceContainerHigh,
+                  borderRadius: 14,
+                  paddingVertical: 14,
+                  alignItems: 'center',
+                }}
+                onPress={() => setWeekToDelete(null)}
+              >
+                <Text style={[{ fontSize: 15, color: colors.onSurface }, body]}>Cancel</Text>
+              </TouchableOpacity>
+            </Pressable>
+          </Pressable>
+        </Modal>
+
+        {/* Custom Date Picker bottom sheet */}
+        <Modal
+          visible={showDatePicker}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowDatePicker(false)}
+        >
+          <Pressable
+            style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}
+            onPress={() => setShowDatePicker(false)}
+          >
+            <Pressable
+              style={{
+                backgroundColor: colors.surface,
+                borderTopLeftRadius: 28,
+                borderTopRightRadius: 28,
+                padding: 24,
+                paddingBottom: insets.bottom + 24,
+              }}
+              onPress={() => {}}
+            >
+              {/* Drag handle */}
+              <View
+                style={{
+                  width: 36,
+                  height: 4,
+                  borderRadius: 2,
+                  backgroundColor: colors.outlineVariant,
+                  alignSelf: 'center',
+                  marginBottom: 20,
+                }}
+              />
+              <Text style={[{ fontSize: 18, fontWeight: '600', color: colors.onSurface, marginBottom: 4 }, headline]}>
+                Select start date
+              </Text>
+              <Text style={[{ fontSize: 13, color: colors.onSurfaceVariant, marginBottom: 24 }, body]}>
+                Choose from the last 7 days
+              </Text>
+
+              {/* Day chips */}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 28 }}>
+                {Array.from({ length: 7 }, (_, i) => addDays(minStartDate, i)).map((date) => {
+                  const iso = date.toISOString().slice(0, 10);
+                  const isSelected = datePickerTemp === iso;
+                  const isToday = iso === today.toISOString().slice(0, 10);
+                  const dayLabel = isToday
+                    ? 'Today'
+                    : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()];
+                  return (
+                    <TouchableOpacity
+                      key={iso}
+                      onPress={() => setDatePickerTemp(iso)}
+                      style={{
+                        flex: 1,
+                        marginHorizontal: 3,
+                        paddingVertical: 10,
+                        borderRadius: 12,
+                        alignItems: 'center',
+                        backgroundColor: isSelected ? colors.primary : colors.surfaceContainerHigh,
+                      }}
+                    >
+                      <Text
+                        style={[
+                          { fontSize: 10, color: isSelected ? '#fff' : colors.onSurfaceVariant, marginBottom: 3 },
+                          body,
+                        ]}
+                      >
+                        {dayLabel}
+                      </Text>
+                      <Text
+                        style={[
+                          { fontSize: 16, fontWeight: '600', color: isSelected ? '#fff' : colors.onSurface },
+                          headline,
+                        ]}
+                      >
+                        {date.getDate()}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Confirm */}
+              <TouchableOpacity
+                style={{
+                  backgroundColor: colors.primary,
+                  borderRadius: 16,
+                  paddingVertical: 14,
+                  alignItems: 'center',
+                  marginBottom: 10,
+                  opacity: datePickerTemp ? 1 : 0.4,
+                }}
+                disabled={!datePickerTemp}
+                onPress={() => {
+                  if (datePickerTemp) setWeekStart(datePickerTemp);
+                  setShowDatePicker(false);
+                }}
+              >
+                <Text style={[{ fontSize: 15, color: '#fff', fontWeight: '600' }, body]}>Confirm</Text>
+              </TouchableOpacity>
+
+              {/* Cancel */}
+              <TouchableOpacity
+                style={{ paddingVertical: 12, alignItems: 'center' }}
+                onPress={() => setShowDatePicker(false)}
+              >
+                <Text style={[{ fontSize: 15, color: colors.onSurface }, body]}>Cancel</Text>
+              </TouchableOpacity>
+            </Pressable>
+          </Pressable>
+        </Modal>
+
+        {/* App notification bottom sheet */}
+        <Modal
+          visible={!!appAlert}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setAppAlert(null)}
+        >
+          <Pressable
+            style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}
+            onPress={() => setAppAlert(null)}
+          >
+            <Pressable
+              style={{
+                backgroundColor: colors.surface,
+                borderTopLeftRadius: 28,
+                borderTopRightRadius: 28,
+                padding: 24,
+                paddingBottom: insets.bottom + 24,
+              }}
+              onPress={() => {}}
+            >
+              {/* Drag handle */}
+              <View
+                style={{
+                  width: 36,
+                  height: 4,
+                  borderRadius: 2,
+                  backgroundColor: colors.outlineVariant,
+                  alignSelf: 'center',
+                  marginBottom: 20,
+                }}
+              />
+
+              {/* Icon */}
+              <View
+                style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: 28,
+                  backgroundColor: appAlert?.type === 'success' ? colors.primaryFixed : colors.errorContainer,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  alignSelf: 'center',
+                  marginBottom: 16,
+                }}
+              >
+                <MaterialIcons
+                  name={appAlert?.type === 'success' ? 'check-circle-outline' : 'error-outline'}
+                  size={28}
+                  color={appAlert?.type === 'success' ? colors.primary : colors.error}
+                />
+              </View>
+
+              <Text style={[{ fontSize: 18, color: colors.onSurface, textAlign: 'center', marginBottom: 8 }, headline]}>
+                {appAlert?.title}
+              </Text>
+              <Text style={[{ fontSize: 14, color: colors.onSurfaceVariant, textAlign: 'center', lineHeight: 20, marginBottom: 28 }, body]}>
+                {appAlert?.message}
+              </Text>
+
+              <TouchableOpacity
+                style={{
+                  backgroundColor: colors.primary,
+                  borderRadius: 14,
+                  paddingVertical: 14,
+                  alignItems: 'center',
+                }}
+                onPress={() => setAppAlert(null)}
+              >
+                <Text style={[{ fontSize: 15, color: '#fff', fontWeight: '600' }, body]}>OK</Text>
+              </TouchableOpacity>
+            </Pressable>
+          </Pressable>
+        </Modal>
 
         {/* Monthly summary */}
         <View style={styles.monthlySummary}>
@@ -594,435 +1288,3 @@ export default function CurrentWeek() {
     </SafeAreaView>
   );
 }
-
-// ---------------------------------------------------------------------
-// 6. Styles
-// ---------------------------------------------------------------------
-const { width: screenWidth } = Dimensions.get('window');
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 20,
-  },
-  // Top Bar
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingBottom: 16,
-    backgroundColor: Colors.background,
-  },
-  profileSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-  },
-  logoText: {
-    fontSize: 24,
-    color: Colors.primary,
-  },
-  // Hero
-  hero: {
-    marginBottom: 24,
-  },
-  heroTitle: {
-    fontSize: 32,
-    color: Colors.onBackground,
-    marginBottom: 8,
-  },
-  heroSubtitle: {
-    fontSize: 16,
-    color: Colors.onSurfaceVariant,
-    lineHeight: 24,
-  },
-  highlight: {
-    color: Colors.primary,
-  },
-  // Action Row
-  actionRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 24,
-  },
-  gradientButton: {
-    flex: 1,
-    borderRadius: 12,
-    backgroundColor: Colors.primary,
-    paddingVertical: 14,
-    minHeight: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  outlineButton: {
-    flex: 1,
-    borderRadius: 12,
-    paddingVertical: 14,
-    minHeight: 48,
-    borderWidth: 1,
-    borderColor: Colors.outlineVariant,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 8,
-  },
-  buttonInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderRadius: 10,
-  },
-  buttonText: {
-    fontSize: 16,
-    color: Colors.onPrimary,
-  },
-  outlineButtonText: {
-    fontSize: 16,
-    color: Colors.primary,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
-  },
-  modalCardScroll: {
-    flexGrow: 1,
-    width: '100%',
-  },
-  modalCard: {
-    width: '92%',
-    maxHeight: '88%',
-    backgroundColor: Colors.surface,
-    borderRadius: 20,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 12,
-  },
-  modalTitle: {
-    fontSize: 20,
-    marginBottom: 12,
-    color: Colors.onBackground,
-  },
-  modalLabel: {
-    fontSize: 12,
-    color: Colors.onSurfaceVariant,
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  modalInput: {
-    borderWidth: 1,
-    borderColor: Colors.surfaceContainerHigh,
-    backgroundColor: Colors.surfaceContainerLowest,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 8,
-  },
-  rowInput: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-    gap: 8,
-  },
-  smallButton: {
-    minWidth: 36,
-    minHeight: 36,
-    borderRadius: 8,
-    backgroundColor: Colors.surfaceContainer,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  smallButtonText: {
-    fontSize: 20,
-    color: Colors.primary,
-  },
-  modalValue: {
-    fontSize: 16,
-    color: Colors.onBackground,
-    width: 40,
-    textAlign: 'center',
-  },
-  dayEntryRow: {
-    marginBottom: 6,
-  },
-  dayEntryLabel: {
-    fontSize: 12,
-    color: Colors.onSurfaceVariant,
-    marginBottom: 3,
-  },
-  datePickerInline: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  modalActions: {
-    flexDirection: 'row',
-    marginTop: 8,
-  },
-  emptyState: {
-    marginTop: 16,
-    borderRadius: 16,
-    backgroundColor: Colors.surfaceContainerLow,
-    padding: 20,
-    alignItems: 'center',
-  },
-  emptyText: {
-    color: Colors.outlineVariant,
-    textAlign: 'center',
-  },
-  monthlySummary: {
-    marginTop: 12,
-    borderRadius: 16,
-    backgroundColor: Colors.surfaceContainerLow,
-    padding: 16,
-    alignItems: 'center',
-  },
-  monthlySummaryTitle: {
-    fontSize: 12,
-    color: Colors.onSurfaceVariant,
-    marginBottom: 4,
-  },
-  monthlySummaryValue: {
-    fontSize: 24,
-    color: Colors.primary,
-    fontWeight: '800',
-    marginBottom: 2,
-  },
-  monthlySummarySub: {
-    fontSize: 14,
-    color: Colors.onSurfaceVariant,
-  },
-  // Week Card
-  weekCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: Colors.inverseSurface,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  weekCardTouchable: {
-    width: '100%',
-  },
-  editWeekButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-    backgroundColor: Colors.surfaceContainerLow,
-    borderRadius: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  editWeekText: {
-    fontSize: 14,
-    color: Colors.primary,
-    marginLeft: 6,
-  },
-  activeBadge: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    backgroundColor: Colors.primaryFixed,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  activeBadgeText: {
-    fontSize: 12,
-    color: Colors.primary,
-  },
-  dateRangeText: {
-    fontSize: 14,
-    color: Colors.onSurfaceVariant,
-    marginBottom: 4,
-  },
-  totalHoursText: {
-    fontSize: 28,
-    color: Colors.onSurface,
-    marginBottom: 16,
-  },
-  progressSection: {
-    marginBottom: 16,
-  },
-  progressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  progressLabel: {
-    fontSize: 14,
-    color: Colors.onSurfaceVariant,
-  },
-  goalText: {
-    fontSize: 14,
-    color: Colors.onSurfaceVariant,
-  },
-  customLabel: {
-    fontSize: 14,
-  },
-  progressBarContainer: {
-    height: 8,
-    backgroundColor: Colors.surfaceContainerHigh,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  dayIndicators: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  dayRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  dayCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dayLetter: {
-    fontSize: 14,
-  },
-  // Timer Card
-  timerCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    shadowColor: Colors.inverseSurface,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  timerLeft: {
-    flex: 1,
-  },
-  pulseContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  pulseDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.error,
-    position: 'absolute',
-  },
-  staticDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.error,
-  },
-  trackingLabel: {
-    fontSize: 14,
-    color: Colors.onSurfaceVariant,
-  },
-  timerDisplay: {
-    fontSize: 32,
-    color: Colors.onSurface,
-    marginBottom: 4,
-  },
-  projectName: {
-    fontSize: 14,
-    color: Colors.onSurfaceVariant,
-  },
-  stopButton: {
-    backgroundColor: Colors.error,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-  },
-  stopButtonText: {
-    fontSize: 16,
-    color: Colors.onError,
-  },
-  // Summary Card
-  summaryCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: Colors.inverseSurface,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  summaryTitle: {
-    fontSize: 20,
-    color: Colors.onSurface,
-    marginBottom: 8,
-  },
-  summaryHours: {
-    fontSize: 32,
-    color: Colors.primary,
-    marginBottom: 16,
-  },
-  efficiencyContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  efficiencyLabel: {
-    fontSize: 14,
-    color: Colors.onSurfaceVariant,
-  },
-  efficiencyValue: {
-    fontSize: 20,
-    color: Colors.onSurface,
-  },
-  efficiencyBarContainer: {
-    height: 8,
-    backgroundColor: Colors.surfaceContainerHigh,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  efficiencyFill: {
-    height: '100%',
-    backgroundColor: Colors.primary,
-    borderRadius: 4,
-  },
-});

@@ -6,61 +6,16 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
-  Dimensions,
-  Platform,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    Platform,
+    ScrollView,
+    StatusBar,
+    Text,
+    View
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-
-// ---------------------------------------------------------------------
-// 1. Color Palette (del HTML)
-// ---------------------------------------------------------------------
-const Colors = {
-  primary: '#004f59',
-  onPrimary: '#ffffff',
-  primaryContainer: '#006975',
-  onPrimaryContainer: '#6beaff',
-  primaryFixed: '#9cf0ff',
-  primaryFixedDim: '#00daf3',
-  secondary: '#4c56af',
-  onSecondary: '#ffffff',
-  secondaryContainer: '#959efd',
-  onSecondaryContainer: '#27308a',
-  secondaryFixed: '#e0e0ff',
-  secondaryFixedDim: '#bdc2ff',
-  tertiary: '#00531e',
-  onTertiary: '#ffffff',
-  tertiaryContainer: '#006e2a',
-  onTertiaryContainer: '#54f67a',
-  tertiaryFixed: '#69ff87',
-  tertiaryFixedDim: '#3ce36a',
-  error: '#ba1a1a',
-  onError: '#ffffff',
-  errorContainer: '#ffdad6',
-  onErrorContainer: '#93000a',
-  background: '#f7f9fc',
-  onBackground: '#191c1e',
-  surface: '#f7f9fc',
-  onSurface: '#191c1e',
-  surfaceVariant: '#e0e3e6',
-  onSurfaceVariant: '#424654',
-  surfaceContainerLowest: '#ffffff',
-  surfaceContainerLow: '#f2f4f7',
-  surfaceContainer: '#eceef1',
-  surfaceContainerHigh: '#e6e8eb',
-  surfaceContainerHighest: '#e0e3e6',
-  inverseSurface: '#2d3133',
-  inverseOnSurface: '#eff1f4',
-  inversePrimary: '#00daf3',
-  outline: '#737785',
-  outlineVariant: '#c3c6d6',
-  surfaceTint: '#006875',
-};
+import { createMonthlyInsightsStyles } from './tabStyles';
+import { useAppTheme } from './ThemeContext';
+import { TopBar } from './TopBar';
 
 // ---------------------------------------------------------------------
 // 2. Tipografía usando fuentes del sistema
@@ -78,6 +33,12 @@ const typography = {
     fontFamily: 'System',
     fontWeight: '600' as const,
   },
+};
+
+const useMonthlyInsightsStyles = () => {
+  const { colors } = useAppTheme();
+  const styles = createMonthlyInsightsStyles(colors);
+  return { styles, colors };
 };
 
 // ---------------------------------------------------------------------
@@ -189,7 +150,7 @@ const calculateMonthlyMetrics = (weeks: WeekData[]) => {
   };
 };
 
-const generateWeeklyData = (weekHours: { [key: number]: number }) => {
+const generateWeeklyData = (weekHours: { [key: number]: number }, colors: any) => {
   const today = new Date();
   const currentMonth = today.getMonth();
   const currentYear = today.getFullYear();
@@ -206,13 +167,13 @@ const generateWeeklyData = (weekHours: { [key: number]: number }) => {
     weeks.push({
       week: `W${4 - i}`,
       heightPercent,
-      color: i === 0 ? Colors.tertiary : Colors.primary, // Current week in tertiary
+      color: i === 0 ? colors.tertiary : colors.primary, // Current week in tertiary
     });
   }
   return weeks;
 };
 
-const generateSessionsData = (weeks: WeekData[]): Session[] => {
+const generateSessionsData = (weeks: WeekData[], colors: any): Session[] => {
   const today = new Date();
   const currentMonth = today.getMonth();
   const currentYear = today.getFullYear();
@@ -236,7 +197,7 @@ const generateSessionsData = (weeks: WeekData[]): Session[] => {
 
   const icons = ['rocket-launch', 'palette', 'forum'];
   const categories = ['Single Focus', 'Creative Review', 'Meetings'];
-  const colors = [Colors.primary, Colors.secondary, Colors.tertiary];
+  const palette = [colors.primary, colors.secondary, colors.tertiary];
 
   return topEntries.map((entry, idx) => ({
     id: entry.date.toISOString(),
@@ -246,8 +207,8 @@ const generateSessionsData = (weeks: WeekData[]): Session[] => {
     duration: formatHoursLabel(entry.hours),
     durationHours: entry.hours,
     icon: icons[idx % icons.length],
-    color: colors[idx % colors.length],
-    borderColor: colors[idx % colors.length],
+    color: palette[idx % palette.length],
+    borderColor: palette[idx % palette.length],
   }));
 };
 
@@ -264,8 +225,8 @@ const MetricCard = ({
   trend,
   trendPositive = true,
   gradientColors,
-  textColor = Colors.onSurface,
-  labelColor = Colors.onSurfaceVariant,
+  textColor,
+  labelColor,
 }: {
   icon: string;
   iconColor?: string;
@@ -277,10 +238,13 @@ const MetricCard = ({
   textColor?: string;
   labelColor?: string;
 }) => {
+  const { styles, colors } = useMonthlyInsightsStyles();
+  textColor = textColor ?? colors.onSurface;
+  labelColor = labelColor ?? colors.onSurfaceVariant;
   const cardContent = (
     <>
       <View style={styles.metricHeader}>
-        <MaterialIcons name={icon as any} size={28} color={iconColor || Colors.primary} />
+        <MaterialIcons name={icon as any} size={28} color={iconColor || colors.primary} />
         {trend && (
           <View style={[styles.trendBadge, trendPositive && styles.trendPositive]}>
             <Text style={[styles.trendText, typography.label]}>{trend}</Text>
@@ -316,6 +280,7 @@ const MetricCard = ({
 
 // ---- Gráfico de barras ----
 const BarChart = ({ weeklyData }: { weeklyData: any[] }) => {
+  const { styles, colors } = useMonthlyInsightsStyles();
   const maxBarHeight = 160; // altura máxima de la barra en píxeles
 
   return (
@@ -326,7 +291,7 @@ const BarChart = ({ weeklyData }: { weeklyData: any[] }) => {
           <Text style={[styles.chartSubtitle, typography.body]}>Hours worked over the last 4 weeks</Text>
         </View>
         <View style={styles.legend}>
-          <View style={[styles.legendDot, { backgroundColor: Colors.primary }]} />
+          <View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
           <Text style={[styles.legendText, typography.label]}>Actual</Text>
         </View>
       </View>
@@ -356,11 +321,12 @@ const BarChart = ({ weeklyData }: { weeklyData: any[] }) => {
 
 // ---- Tarjeta "Peak Productivity" ----
 const PeakProductivityCard = ({ peakDay }: { peakDay: string }) => {
+  const { styles, colors } = useMonthlyInsightsStyles();
   return (
     <View style={styles.peakCard}>
       <View style={styles.peakBlur} />
       <View style={styles.peakContent}>
-        <MaterialIcons name="bolt" size={32} color={Colors.tertiary} style={styles.peakIcon} />
+        <MaterialIcons name="bolt" size={32} color={colors.tertiary} style={styles.peakIcon} />
         <Text style={[styles.peakLabel, typography.label]}>Peak Productivity</Text>
         <Text style={[styles.peakDay, typography.headline]}>{peakDay}</Text>
         <Text style={[styles.peakDescription, typography.body]}>
@@ -373,6 +339,7 @@ const PeakProductivityCard = ({ peakDay }: { peakDay: string }) => {
 
 // ---- Componente de sesión ----
 const SessionItem = ({ session }: { session: Session }) => {
+  const { styles } = useMonthlyInsightsStyles();
   return (
     <View style={[styles.sessionCard, { borderLeftColor: session.borderColor }]}>
       <View style={styles.sessionLeft}>
@@ -397,6 +364,8 @@ const SessionItem = ({ session }: { session: Session }) => {
 // ---------------------------------------------------------------------
 export default function App() {
   const router = useRouter();
+  const { mode, colors, toggleMode } = useAppTheme();
+  const styles = createMonthlyInsightsStyles(colors);
   const [activeAppTab, setActiveAppTab] = useState<BottomTab>('monthly');
   const [activeTab, setActiveTab] = useState<'weeks' | 'log' | 'stats'>('stats');
   const [weeks, setWeeks] = useState<WeekData[]>([]);
@@ -404,6 +373,8 @@ export default function App() {
   const [weeklyData, setWeeklyData] = useState<any[]>([]);
   const [sessionsData, setSessionsData] = useState<Session[]>([]);
   const insets = useSafeAreaInsets();
+  const currentDate = new Date();
+  const formattedDate = currentDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
   const routeMap: Record<BottomTab, string> = {
     today: '/today',
@@ -444,8 +415,8 @@ export default function App() {
         setWeeks(parsedWeeks);
         const calculatedMetrics = calculateMonthlyMetrics(parsedWeeks);
         setMetrics(calculatedMetrics);
-        setWeeklyData(generateWeeklyData(calculatedMetrics.weekHours));
-        setSessionsData(generateSessionsData(parsedWeeks));
+        setWeeklyData(generateWeeklyData(calculatedMetrics.weekHours, colors));
+        setSessionsData(generateSessionsData(parsedWeeks, colors));
       } else {
         setMetrics({
           totalHours: 0,
@@ -517,7 +488,7 @@ export default function App() {
         <View style={styles.metricsGrid}>
           <MetricCard
             icon="schedule"
-            iconColor={Colors.primary}
+            iconColor={colors.primary}
             label="Total Hours this month"
             value={metrics ? formatHoursLabel(metrics.totalHours) : '0h 0m'}
             trend="+12%"
@@ -525,13 +496,13 @@ export default function App() {
           />
           <MetricCard
             icon="timelapse"
-            iconColor={Colors.secondary}
+            iconColor={colors.secondary}
             label="Average daily hours"
             value={metrics ? metrics.averageDaily.toFixed(1) : '0.0'}
           />
           <MetricCard
             icon="calendar-today"
-            iconColor={Colors.tertiary}
+            iconColor={colors.tertiary}
             label="Days worked"
             value={metrics ? `${metrics.daysWorked}` : '0'}
           />
@@ -539,9 +510,9 @@ export default function App() {
             icon="verified"
             label="Goal completion rate"
             value={metrics ? `${metrics.goalCompletion}%` : '0%'}
-            gradientColors={[Colors.primary, Colors.primaryContainer]}
-            textColor={Colors.onPrimary}
-            labelColor={Colors.primaryFixed}
+            gradientColors={[colors.primary, colors.primaryContainer]}
+            textColor={colors.onPrimary}
+            labelColor={colors.primaryFixed}
           />
         </View>
 
@@ -556,7 +527,7 @@ export default function App() {
         </View>
 
         {/* Longest Sessions */}
-        <View style={styles.sessionsHeader}>
+        {/* <View style={styles.sessionsHeader}>
           <Text style={[styles.sessionsTitle, typography.headline]}>Longest Sessions</Text>
           <TouchableOpacity onPress={handleViewAll}>
             <Text style={[styles.viewAllButton, typography.label]}>View All</Text>
@@ -571,404 +542,22 @@ export default function App() {
           <View style={styles.emptySessions}>
             <Text style={[styles.emptyText, typography.body]}>No sessions recorded this month.</Text>
           </View>
-        )}
+        )} */}
       </ScrollView>
     );
   };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
-      <View style={[styles.topBar, { paddingTop: insets.top || 16 }]}> 
-        <Text style={[styles.logoText, typography.headline]}>Monthly Insights</Text>
-      </View>
+      <StatusBar barStyle={mode === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+      <TopBar
+        title="Monthly Insights"
+        mode={mode}
+        onToggleTheme={toggleMode}
+        onAvatarPress={() => alert('Profile pressed')}
+      />
       {renderContent()}
       <BottomNav activeTab={activeAppTab} onTabPress={handleNavPress} />
     </SafeAreaView>
   );
 }
-
-// ---------------------------------------------------------------------
-// 6. Estilos
-// ---------------------------------------------------------------------
-const { width: screenWidth } = Dimensions.get('window');
-
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingTop: 16,
-  },
-  // Top Bar
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingBottom: 16,
-    backgroundColor: Colors.background,
-  },
-  topBarLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.primaryContainer,
-  },
-  logoText: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: Colors.primary,
-  },
-  // Header
-  headerSection: {
-    marginBottom: 24,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: Colors.onSurfaceVariant,
-    marginBottom: 4,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: Colors.primary,
-  },
-  // Metrics Grid
-  metricsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginBottom: 32,
-    gap: 16,
-  },
-  metricCard: {
-    width: (screenWidth - 48 - 16) / 2, // dos columnas con 16px de gap
-    backgroundColor: Colors.surfaceContainerLowest,
-    borderRadius: 24,
-    padding: 16,
-    justifyContent: 'space-between',
-    height: 160,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  gradientCard: {
-    backgroundColor: 'transparent',
-  },
-  metricHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  trendBadge: {
-    backgroundColor: `${Colors.tertiary}30`,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  trendPositive: {
-    backgroundColor: `${Colors.tertiaryFixed}30`,
-  },
-  trendText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: Colors.tertiary,
-  },
-  metricFooter: {
-    marginTop: 'auto',
-  },
-  metricLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 4,
-  },
-  metricValue: {
-    fontSize: 24,
-    fontWeight: '800',
-  },
-  // Chart
-  chartRow: {
-    marginBottom: 32,
-    gap: 16,
-  },
-  chartColumn: {
-    marginBottom: 16,
-  },
-  chartContainer: {
-    backgroundColor: Colors.surfaceContainerLowest,
-    borderRadius: 32,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  chartHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    marginBottom: 24,
-  },
-  chartTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: Colors.onSurface,
-    marginBottom: 4,
-  },
-  chartSubtitle: {
-    fontSize: 12,
-    color: Colors.onSurfaceVariant,
-  },
-  legend: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  legendDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  legendText: {
-    fontSize: 10,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    color: Colors.onSurfaceVariant,
-  },
-  barsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    height: 200,
-    gap: 12,
-  },
-  barItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  barWrapper: {
-    width: '100%',
-    height: 160,
-    justifyContent: 'flex-end',
-  },
-  barBackground: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: Colors.surfaceContainerLow,
-    borderRadius: 12,
-    overflow: 'hidden',
-    justifyContent: 'flex-end',
-  },
-  barFill: {
-    width: '100%',
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
-  },
-  barLabel: {
-    marginTop: 12,
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: Colors.onSurfaceVariant,
-  },
-  // Peak Card
-  peakColumn: {
-    marginBottom: 16,
-  },
-  peakCard: {
-    backgroundColor: Colors.surfaceContainerHigh,
-    borderRadius: 32,
-    padding: 24,
-    position: 'relative',
-    overflow: 'hidden',
-    height: 200,
-    justifyContent: 'center',
-  },
-  peakBlur: {
-    position: 'absolute',
-    right: -16,
-    top: -16,
-    width: 128,
-    height: 128,
-    borderRadius: 64,
-    backgroundColor: `${Colors.tertiaryFixed}20`,
-  },
-  peakContent: {
-    zIndex: 2,
-  },
-  peakIcon: {
-    marginBottom: 12,
-  },
-  peakLabel: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    color: Colors.onSurfaceVariant,
-    marginBottom: 6,
-  },
-  peakDay: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: Colors.primary,
-    marginBottom: 8,
-  },
-  peakDescription: {
-    fontSize: 14,
-    color: Colors.onSurfaceVariant,
-    lineHeight: 20,
-  },
-  // Sessions
-  sessionsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  sessionsTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: Colors.onSurface,
-  },
-  viewAllButton: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.primary,
-  },
-  sessionCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: Colors.surfaceContainerLowest,
-    borderRadius: 24,
-    padding: 20,
-    marginBottom: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.primary,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.02,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  sessionLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    flex: 1,
-  },
-  sessionIconBg: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sessionTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: Colors.onSurface,
-    marginBottom: 4,
-  },
-  sessionMeta: {
-    fontSize: 12,
-    color: Colors.onSurfaceVariant,
-  },
-  sessionRight: {
-    alignItems: 'flex-end',
-  },
-  sessionDuration: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: Colors.primary,
-    marginBottom: 4,
-  },
-  sessionCategory: {
-    fontSize: 10,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    color: Colors.onSurfaceVariant,
-  },
-  // Bottom Navigation
-  bottomNav: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.7)',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  navItem: {
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 16,
-  },
-  navItemActive: {
-    backgroundColor: `${Colors.primaryFixedDim}20`,
-  },
-  navLabel: {
-    fontSize: 10,
-    marginTop: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    color: Colors.outline,
-  },
-  navLabelActive: {
-    color: Colors.primary,
-    fontWeight: 'bold',
-  },
-  // Placeholders
-  placeholderScreen: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  placeholderTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: Colors.primary,
-    marginBottom: 8,
-  },
-  placeholderSub: {
-    fontSize: 16,
-    color: Colors.onSurfaceVariant,
-    textAlign: 'center',
-  },
-  emptySessions: {
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: Colors.onSurfaceVariant,
-    textAlign: 'center',
-  },
-});
