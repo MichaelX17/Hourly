@@ -6,11 +6,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
-    Platform,
-    ScrollView,
-    StatusBar,
-    Text,
-    View
+  Platform,
+  ScrollView,
+  StatusBar,
+  Text,
+  View
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createMonthlyInsightsStyles } from './tabStyles';
@@ -116,6 +116,8 @@ const calculateMonthlyMetrics = (weeks: WeekData[]) => {
     if (week.dayEntries) {
       week.dayEntries.forEach(entry => {
         const entryDate = new Date(entry.date);
+        // Only count days belonging to the current month and year
+        if (entryDate.getMonth() !== currentMonth || entryDate.getFullYear() !== currentYear) return;
         totalHours += entry.hours;
         if (entry.hours > 0) daysWorked++;
         const dayKey = getDayOfWeek(entryDate);
@@ -132,10 +134,10 @@ const calculateMonthlyMetrics = (weeks: WeekData[]) => {
 
   // Peak day
   let peakDay = 'Tuesday'; // default
-  let maxHours = 0;
+  let peakHours = 0;
   Object.entries(dayHours).forEach(([day, hours]) => {
-    if (hours > maxHours) {
-      maxHours = hours;
+    if (hours > peakHours) {
+      peakHours = hours;
       peakDay = day;
     }
   });
@@ -147,13 +149,27 @@ const calculateMonthlyMetrics = (weeks: WeekData[]) => {
     daysWorked,
     weekHours,
     peakDay,
+    peakHours,
   };
 };
 
-const generateWeeklyData = (weekHours: { [key: number]: number }, colors: any) => {
+const generateWeeklyData = (rawWeeks: WeekData[], colors: any) => {
   const today = new Date();
   const currentMonth = today.getMonth();
   const currentYear = today.getFullYear();
+
+  // Build week-hours map counting only days in the current month
+  const weekHours: { [key: number]: number } = {};
+  rawWeeks.forEach(week => {
+    if (week.dayEntries) {
+      week.dayEntries.forEach(entry => {
+        const entryDate = new Date(entry.date);
+        if (entryDate.getMonth() !== currentMonth || entryDate.getFullYear() !== currentYear) return;
+        const weekNum = getWeekNumber(entryDate);
+        weekHours[weekNum] = (weekHours[weekNum] || 0) + entry.hours;
+      });
+    }
+  });
 
   // Get last 4 weeks
   const weeks = [];
@@ -167,7 +183,7 @@ const generateWeeklyData = (weekHours: { [key: number]: number }, colors: any) =
     weeks.push({
       week: `W${4 - i}`,
       heightPercent,
-      color: i === 0 ? colors.tertiary : colors.primary, // Current week in tertiary
+      color: i === 0 ? colors.primary : `${colors.primary}35`,
     });
   }
   return weeks;
@@ -320,17 +336,26 @@ const BarChart = ({ weeklyData }: { weeklyData: any[] }) => {
 };
 
 // ---- Tarjeta "Peak Productivity" ----
-const PeakProductivityCard = ({ peakDay }: { peakDay: string }) => {
+const PeakProductivityCard = ({ peakDay, peakHours }: { peakDay: string; peakHours: number }) => {
   const { styles, colors } = useMonthlyInsightsStyles();
+
+  const noData = peakHours === 0;
+
+  const getMessage = () => {
+    if (noData) return "Looks like you haven't been productive this month yet.";
+    if (peakHours > 4) return `Great consistency! Your peak days show real dedication — keep that momentum going.`;
+    return "Every hour you put in builds the habit. Push past 4h on your best day — you're closer than you think!";
+  };
+
   return (
     <View style={styles.peakCard}>
       <View style={styles.peakBlur} />
       <View style={styles.peakContent}>
         <MaterialIcons name="bolt" size={32} color={colors.tertiary} style={styles.peakIcon} />
         <Text style={[styles.peakLabel, typography.label]}>Peak Productivity</Text>
-        <Text style={[styles.peakDay, typography.headline]}>{peakDay}</Text>
+        {!noData && <Text style={[styles.peakDay, typography.headline]}>{peakDay}</Text>}
         <Text style={[styles.peakDescription, typography.body]}>
-          Your most focused sessions usually start around 10:15 AM.
+          {getMessage()}
         </Text>
       </View>
     </View>
@@ -354,6 +379,31 @@ const SessionItem = ({ session }: { session: Session }) => {
       <View style={styles.sessionRight}>
         <Text style={[styles.sessionDuration, typography.headline]}>{session.duration}</Text>
         <Text style={[styles.sessionCategory, typography.label]}>{session.category}</Text>
+      </View>
+    </View>
+  );
+};
+
+// ---- Barra de progreso del mes ----
+const MonthProgress = () => {
+  const { styles } = useMonthlyInsightsStyles();
+  const now = new Date();
+  const currentDay = now.getDate();
+  const totalDaysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const progressPercent = Math.min(100, (currentDay / totalDaysInMonth) * 100);
+  const monthName = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+  return (
+    <View style={styles.monthProgressSection}>
+      <View style={styles.monthProgressHeader}>
+        <Text style={[styles.monthProgressLabel, typography.label]}>MONTH PROGRESS</Text>
+        <Text style={[styles.monthProgressPercent, typography.label]}>{Math.round(progressPercent)}%</Text>
+      </View>
+      <Text style={[styles.monthProgressSub, typography.body]}>
+        {`Day ${currentDay} of ${totalDaysInMonth} · ${monthName}`}
+      </Text>
+      <View style={styles.monthProgressBarContainer}>
+        <View style={[styles.monthProgressBarFill, { width: `${progressPercent}%` }]} />
       </View>
     </View>
   );
@@ -403,6 +453,7 @@ export default function App() {
           goalCompletion: 0,
           daysWorked: 0,
           peakDay: 'Tuesday',
+          peakHours: 0,
         });
         setWeeklyData([]);
         setSessionsData([]);
@@ -415,7 +466,7 @@ export default function App() {
         setWeeks(parsedWeeks);
         const calculatedMetrics = calculateMonthlyMetrics(parsedWeeks);
         setMetrics(calculatedMetrics);
-        setWeeklyData(generateWeeklyData(calculatedMetrics.weekHours, colors));
+        setWeeklyData(generateWeeklyData(parsedWeeks, colors));
         setSessionsData(generateSessionsData(parsedWeeks, colors));
       } else {
         setMetrics({
@@ -424,6 +475,7 @@ export default function App() {
           goalCompletion: 0,
           daysWorked: 0,
           peakDay: 'Tuesday',
+          peakHours: 0,
         });
         setWeeklyData([]);
         setSessionsData([]);
@@ -437,6 +489,7 @@ export default function App() {
         goalCompletion: 0,
         daysWorked: 0,
         peakDay: 'Tuesday',
+        peakHours: 0,
       });
       setWeeklyData([]);
       setSessionsData([]);
@@ -482,6 +535,7 @@ export default function App() {
         <View style={styles.headerSection}>
           <Text style={[styles.headerSubtitle, typography.body]}>Your Progress</Text>
           <Text style={[styles.headerTitle, typography.headline]}>Monthly Insights</Text>
+          <MonthProgress />
         </View>
 
         {/* Metrics Grid */}
@@ -508,11 +562,12 @@ export default function App() {
           />
           <MetricCard
             icon="verified"
+            iconColor="#ffffff"
             label="Goal completion rate"
             value={metrics ? `${metrics.goalCompletion}%` : '0%'}
-            gradientColors={[colors.primary, colors.primaryContainer]}
-            textColor={colors.onPrimary}
-            labelColor={colors.primaryFixed}
+            gradientColors={[colors.primary, colors.tertiary]}
+            textColor="#ffffff"
+            labelColor="rgba(255,255,255,0.8)"
           />
         </View>
 
@@ -522,7 +577,7 @@ export default function App() {
             <BarChart weeklyData={weeklyData} />
           </View>
           <View style={styles.peakColumn}>
-            <PeakProductivityCard peakDay={metrics?.peakDay || 'Tuesday'} />
+            <PeakProductivityCard peakDay={metrics?.peakDay || 'Tuesday'} peakHours={metrics?.peakHours ?? 0} />
           </View>
         </View>
 

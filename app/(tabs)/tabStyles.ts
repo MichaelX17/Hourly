@@ -930,6 +930,45 @@ export const createMonthlyInsightsStyles = (Colors: any) =>
       fontSize: 28,
       fontWeight: '800',
       color: Colors.primary,
+      marginBottom: 16,
+    },
+    // Month Progress
+    monthProgressSection: {
+      marginBottom: 8,
+    },
+    monthProgressHeader: {
+      flexDirection: 'row' as const,
+      justifyContent: 'space-between' as const,
+      alignItems: 'center' as const,
+      marginBottom: 4,
+    },
+    monthProgressLabel: {
+      fontSize: 12,
+      fontWeight: '600' as const,
+      color: `${Colors.primary}80`,
+      letterSpacing: 0.5,
+      textTransform: 'uppercase' as const,
+    },
+    monthProgressPercent: {
+      fontSize: 12,
+      fontWeight: '700' as const,
+      color: Colors.primary,
+    },
+    monthProgressSub: {
+      fontSize: 13,
+      color: Colors.onSurfaceVariant,
+      marginBottom: 10,
+    },
+    monthProgressBarContainer: {
+      height: 8,
+      backgroundColor: Colors.surfaceContainerHigh,
+      borderRadius: 999,
+      overflow: 'hidden' as const,
+    },
+    monthProgressBarFill: {
+      height: '100%' as const,
+      backgroundColor: Colors.primary,
+      borderRadius: 999,
     },
     // Metrics Grid
     metricsGrid: {
@@ -1638,6 +1677,121 @@ export const createWeekDetailsStyles = (Colors: any) =>
     emptyText: {
       color: Colors.outlineVariant,
       textAlign: 'center',
+    },
+    // Week selector button (fixed above BottomNav)
+    weekSelectorButton: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'space-between' as const,
+      marginHorizontal: 24,
+      marginBottom: 12,
+      paddingHorizontal: 20,
+      paddingVertical: 14,
+      backgroundColor: Colors.surfaceContainerLowest,
+      borderRadius: 20,
+      borderWidth: 1.5,
+      borderColor: `${Colors.primary}30`,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.06,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    weekSelectorButtonLeft: {
+      flexDirection: 'column' as const,
+      gap: 2,
+    },
+    weekSelectorButtonLabel: {
+      fontSize: 10,
+      fontWeight: '600' as const,
+      textTransform: 'uppercase' as const,
+      letterSpacing: 1,
+      color: Colors.primary,
+    },
+    weekSelectorButtonRange: {
+      fontSize: 15,
+      fontWeight: '800' as const,
+      color: Colors.onSurface,
+    },
+    // Week picker modal
+    weekPickerOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      justifyContent: 'flex-end' as const,
+    },
+    weekPickerSheet: {
+      backgroundColor: Colors.surface,
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      paddingTop: 12,
+      paddingBottom: 32,
+      maxHeight: '70%' as const,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: -4 },
+      shadowOpacity: 0.15,
+      shadowRadius: 16,
+      elevation: 16,
+    },
+    weekPickerHandle: {
+      width: 40,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: Colors.outlineVariant,
+      alignSelf: 'center' as const,
+      marginBottom: 16,
+    },
+    weekPickerTitle: {
+      fontSize: 18,
+      fontWeight: '800' as const,
+      color: Colors.onSurface,
+      paddingHorizontal: 24,
+      marginBottom: 16,
+    },
+    weekPickerItem: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'space-between' as const,
+      paddingVertical: 14,
+      paddingHorizontal: 24,
+      borderBottomWidth: 1,
+      borderBottomColor: Colors.surfaceContainerHigh,
+    },
+    weekPickerItemSelected: {
+      backgroundColor: `${Colors.primary}10`,
+    },
+    weekPickerItemLeft: {
+      flexDirection: 'column' as const,
+      gap: 3,
+    },
+    weekPickerItemRange: {
+      fontSize: 15,
+      fontWeight: '700' as const,
+      color: Colors.onSurface,
+    },
+    weekPickerItemRangeSelected: {
+      color: Colors.primary,
+    },
+    weekPickerItemBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 999,
+      backgroundColor: `${Colors.tertiary}20`,
+      alignSelf: 'flex-start' as const,
+    },
+    weekPickerItemBadgeText: {
+      fontSize: 10,
+      fontWeight: '700' as const,
+      color: Colors.tertiary,
+      textTransform: 'uppercase' as const,
+      letterSpacing: 0.5,
+    },
+    weekPickerEmpty: {
+      paddingVertical: 32,
+      alignItems: 'center' as const,
+    },
+    weekPickerEmptyText: {
+      fontSize: 14,
+      color: Colors.onSurfaceVariant,
     },
   });
 

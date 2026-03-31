@@ -5,6 +5,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
+  Modal,
   ScrollView,
   StatusBar,
   Text,
@@ -321,6 +322,66 @@ const WeeklySummaryCard = ({ totalHours }: { totalHours: number }) => {
   );
 };
 
+// ---- Month Week Picker Modal ----
+const WeekPickerModal = ({
+  visible,
+  weeks,
+  selectedWeekId,
+  onSelect,
+  onClose,
+}: {
+  visible: boolean;
+  weeks: WeekData[];
+  selectedWeekId: string | null;
+  onSelect: (week: WeekData) => void;
+  onClose: () => void;
+}) => {
+  const { styles } = useWeekDetailsStyles();
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <TouchableOpacity style={styles.weekPickerOverlay} activeOpacity={1} onPress={onClose}>
+        <TouchableOpacity activeOpacity={1} style={styles.weekPickerSheet} onPress={() => {}}>
+          <View style={styles.weekPickerHandle} />
+          <Text style={[styles.weekPickerTitle, typography.headline]}>Select a Week</Text>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {weeks.length === 0 ? (
+              <View style={styles.weekPickerEmpty}>
+                <Text style={[styles.weekPickerEmptyText, typography.body]}>No weeks recorded yet.</Text>
+              </View>
+            ) : (
+              weeks.map((week) => {
+                const isSelected = week.id === selectedWeekId;
+                return (
+                  <TouchableOpacity
+                    key={week.id}
+                    style={[styles.weekPickerItem, isSelected && styles.weekPickerItemSelected]}
+                    onPress={() => { onSelect(week); onClose(); }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.weekPickerItemLeft}>
+                      <Text style={[styles.weekPickerItemRange, typography.label, isSelected && styles.weekPickerItemRangeSelected]}>
+                        {week.dateRange}
+                      </Text>
+                      {week.isActive && (
+                        <View style={styles.weekPickerItemBadge}>
+                          <Text style={[styles.weekPickerItemBadgeText, typography.label]}>Active</Text>
+                        </View>
+                      )}
+                    </View>
+                    {isSelected && (
+                      <MaterialIcons name="check-circle" size={22} color={styles.weekPickerItemRangeSelected.color} />
+                    )}
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </ScrollView>
+        </TouchableOpacity>
+      </TouchableOpacity>
+    </Modal>
+  );
+};
+
 // ---------------------------------------------------------------------
 // 5. Pantalla principal
 // ---------------------------------------------------------------------
@@ -330,11 +391,12 @@ export default function App() {
   const styles = createWeekDetailsStyles(colors);
   const [activeAppTab, setActiveAppTab] = useState<BottomTab>('week-details');
   const [activeTab, setActiveTab] = useState<'weeks' | 'log' | 'stats'>('weeks');
-  const [expandedDayId, setExpandedDayId] = useState<string>('mon'); // Lunes expandido por defecto
+  const [expandedDayId, setExpandedDayId] = useState<string>('mon');
   const [weeks, setWeeks] = useState<WeekData[]>([]);
   const [selectedWeek, setSelectedWeek] = useState<WeekData | null>(null);
   const [dayRecords, setDayRecords] = useState<DayData[]>(daysData);
   const [isLoadingWeek, setIsLoadingWeek] = useState<boolean>(true);
+  const [showWeekPicker, setShowWeekPicker] = useState(false);
   const insets = useSafeAreaInsets();
   const currentDate = new Date();
   const formattedDate = currentDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
@@ -430,7 +492,7 @@ export default function App() {
     return (
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: 80 + insets.bottom }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 160 + insets.bottom }]}
         showsVerticalScrollIndicator={false}
       >
         {/* Hero Section */}
@@ -438,28 +500,6 @@ export default function App() {
           <Text style={[styles.heroSubtitle, typography.label]}>Detailed View</Text>
           <Text style={[styles.heroTitle, typography.headline]}>{selectedWeek ? `Week: ${selectedWeek.dateRange}` : 'Week details'}</Text>
         </View>
-
-        {/* Week selector con datos del storage */}
-        {weeks.length > 0 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.weekSelectorContainer}>
-            {weeks.map((week) => (
-              <TouchableOpacity
-                key={week.id}
-                style={[
-                  styles.weekChip,
-                  selectedWeek?.id === week.id && styles.weekChipSelected,
-                ]}
-                onPress={() => selectWeek(week)}
-              >
-                <Text
-                  style={selectedWeek?.id === week.id ? styles.weekChipTextSelected : styles.weekChipText}
-                >
-                  {week.dateRange}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        )}
 
         {!selectedWeek ? (
           <View style={styles.emptyState}>
@@ -470,6 +510,16 @@ export default function App() {
             <BentoHighlights days={dayRecords} />
 
             <WeeklySummaryCard totalHours={calculateSummaryFromDays(dayRecords).totalHours} />
+
+            {/* Day list */}
+            {dayRecords.map((day) => (
+              <DayItem
+                key={day.id}
+                day={day}
+                isExpanded={expandedDayId === day.id}
+                onToggle={() => toggleDay(day.id)}
+              />
+            ))}
           </>
         )}
       </ScrollView>
@@ -486,7 +536,34 @@ export default function App() {
         onAvatarPress={() => alert('Profile pressed')}
       />
       {renderContent()}
+
+      {/* Week selector button — floats above BottomNav */}
+      <TouchableOpacity
+        style={[
+          styles.weekSelectorButton,
+          { position: 'absolute', bottom: insets.bottom + 80, left: 24, right: 24, marginHorizontal: 0, marginBottom: 0 },
+        ]}
+        onPress={() => setShowWeekPicker(true)}
+        activeOpacity={0.75}
+      >
+        <View style={styles.weekSelectorButtonLeft}>
+          <Text style={[styles.weekSelectorButtonLabel, typography.label]}>Viewing Week</Text>
+          <Text style={[styles.weekSelectorButtonRange, typography.headline]}>
+            {selectedWeek ? selectedWeek.dateRange : 'No week selected'}
+          </Text>
+        </View>
+        <MaterialIcons name="keyboard-arrow-up" size={24} color={colors.primary} />
+      </TouchableOpacity>
+
       <BottomNav activeTab={activeAppTab} onTabPress={handleNavPress} />
+
+      <WeekPickerModal
+        visible={showWeekPicker}
+        weeks={weeks}
+        selectedWeekId={selectedWeek?.id ?? null}
+        onSelect={selectWeek}
+        onClose={() => setShowWeekPicker(false)}
+      />
     </SafeAreaView>
   );
 }
