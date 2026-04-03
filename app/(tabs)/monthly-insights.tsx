@@ -6,11 +6,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
-    Platform,
-    ScrollView,
-    StatusBar,
-    Text,
-    View
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StatusBar,
+  Text,
+  View
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createMonthlyInsightsStyles } from './tabStyles';
@@ -115,11 +116,12 @@ const calculateMonthlyMetrics = (weeks: WeekData[]) => {
   weeks.forEach(week => {
     if (week.dayEntries) {
       week.dayEntries.forEach(entry => {
-        const entryDate = new Date(entry.date);
-        // Only count days belonging to the current month and year
-        if (entryDate.getMonth() !== currentMonth || entryDate.getFullYear() !== currentYear) return;
+        // Parse YYYY-MM-DD as local date to avoid UTC timezone shift
+        const [y, m, d] = entry.date.split('-').map(Number);
+        if (m - 1 !== currentMonth || y !== currentYear) return;
         totalHours += entry.hours;
         if (entry.hours > 0) daysWorked++;
+        const entryDate = new Date(y, m - 1, d);
         const dayKey = getDayOfWeek(entryDate);
         dayHours[dayKey] = (dayHours[dayKey] || 0) + entry.hours;
         const weekNum = getWeekNumber(entryDate);
@@ -163,8 +165,9 @@ const generateWeeklyData = (rawWeeks: WeekData[], colors: any) => {
   rawWeeks.forEach(week => {
     if (week.dayEntries) {
       week.dayEntries.forEach(entry => {
-        const entryDate = new Date(entry.date);
-        if (entryDate.getMonth() !== currentMonth || entryDate.getFullYear() !== currentYear) return;
+        const [y, m, d] = entry.date.split('-').map(Number);
+        if (m - 1 !== currentMonth || y !== currentYear) return;
+        const entryDate = new Date(y, m - 1, d);
         const weekNum = getWeekNumber(entryDate);
         weekHours[weekNum] = (weekHours[weekNum] || 0) + entry.hours;
       });
@@ -199,8 +202,9 @@ const generateSessionsData = (weeks: WeekData[], colors: any): Session[] => {
   weeks.forEach(week => {
     if (week.dayEntries) {
       week.dayEntries.forEach(entry => {
-        const entryDate = new Date(entry.date);
-        if (entryDate.getMonth() === currentMonth && entryDate.getFullYear() === currentYear && entry.hours > 0) {
+        const [y, m, d] = entry.date.split('-').map(Number);
+        const entryDate = new Date(y, m - 1, d);
+        if (m - 1 === currentMonth && y === currentYear && entry.hours > 0) {
           dayEntries.push({ date: entryDate, hours: entry.hours, note: entry.note });
         }
       });
@@ -422,6 +426,7 @@ export default function App() {
   const [metrics, setMetrics] = useState<any>(null);
   const [weeklyData, setWeeklyData] = useState<any[]>([]);
   const [sessionsData, setSessionsData] = useState<Session[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
   const insets = useSafeAreaInsets();
   const currentDate = new Date();
   const formattedDate = currentDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
@@ -441,20 +446,19 @@ export default function App() {
     if (route) router.push(route as any);
   };
 
-  const loadWeeks = async () => {
+  const emptyMetrics = {
+    totalHours: 0,
+    averageDaily: 0,
+    goalCompletion: 0,
+    daysWorked: 0,
+    peakDay: 'Tuesday',
+    peakHours: 0,
+  };
+
+  const loadWeeks = useCallback(async () => {
     try {
-      console.log('AsyncStorage', AsyncStorage, 'Platform', Platform.OS);
-      // Check if AsyncStorage is available (not available on web)
       if (Platform.OS === 'web' || !AsyncStorage) {
-        console.log('AsyncStorage not available on this platform, using default data');
-        setMetrics({
-          totalHours: 0,
-          averageDaily: 0,
-          goalCompletion: 0,
-          daysWorked: 0,
-          peakDay: 'Tuesday',
-          peakHours: 0,
-        });
+        setMetrics(emptyMetrics);
         setWeeklyData([]);
         setSessionsData([]);
         return;
@@ -469,46 +473,29 @@ export default function App() {
         setWeeklyData(generateWeeklyData(parsedWeeks, colors));
         setSessionsData(generateSessionsData(parsedWeeks, colors));
       } else {
-        setMetrics({
-          totalHours: 0,
-          averageDaily: 0,
-          goalCompletion: 0,
-          daysWorked: 0,
-          peakDay: 'Tuesday',
-          peakHours: 0,
-        });
+        setMetrics(emptyMetrics);
         setWeeklyData([]);
         setSessionsData([]);
       }
     } catch (error) {
       console.log('AsyncStorage / loadWeeks error:', error);
-      // Fallback to default data on error
-      setMetrics({
-        totalHours: 0,
-        averageDaily: 0,
-        goalCompletion: 0,
-        daysWorked: 0,
-        peakDay: 'Tuesday',
-        peakHours: 0,
-      });
+      setMetrics(emptyMetrics);
       setWeeklyData([]);
       setSessionsData([]);
     }
-  };
+  }, [colors]);
 
   useFocusEffect(
     useCallback(() => {
       loadWeeks();
-    }, [])
+    }, [loadWeeks])
   );
 
-  const handleSettings = () => {
-    alert('Settings pressed');
-  };
-
-  const handleViewAll = () => {
-    alert('View all sessions');
-  };
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadWeeks();
+    setRefreshing(false);
+  }, [loadWeeks]);
 
   // Renderizado según pestaña activa
   const renderContent = () => {
@@ -530,6 +517,9 @@ export default function App() {
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 80 + insets.bottom }]}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
       >
         {/* Header Section */}
         <View style={styles.headerSection}>

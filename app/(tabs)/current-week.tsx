@@ -14,6 +14,7 @@ import {
   NativeModules,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StatusBar,
   Text,
@@ -728,6 +729,7 @@ export default function CurrentWeek() {
   const [showImportConflicts, setShowImportConflicts] = useState(false);
   const [importConflicts, setImportConflicts] = useState<ImportConflict[]>([]);
   const [importClean, setImportClean] = useState<WeekData[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
   const [showDataMenu, setShowDataMenu] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [pendingExportWeeks, setPendingExportWeeks] = useState<WeekData[]>([]);
@@ -1053,8 +1055,8 @@ export default function CurrentWeek() {
       sum +
       (week.dayEntries
         ? week.dayEntries.reduce((dSum, entry) => {
-            const entryDate = new Date(entry.date);
-            if (entryDate.getMonth() === currentMonth && entryDate.getFullYear() === currentYear) {
+            const [y, m] = entry.date.split('-').map(Number);
+            if (m - 1 === currentMonth && y === currentYear) {
               return dSum + entry.hours;
             }
             return dSum;
@@ -1068,8 +1070,8 @@ export default function CurrentWeek() {
       sum +
       (week.dayEntries
         ? week.dayEntries.reduce((dSum, entry) => {
-            const entryDate = new Date(entry.date);
-            if (entryDate.getMonth() === currentMonth && entryDate.getFullYear() === currentYear && entry.hours > 0) {
+            const [y, m] = entry.date.split('-').map(Number);
+            if (m - 1 === currentMonth && y === currentYear && entry.hours > 0) {
               return dSum + 1;
             }
             return dSum;
@@ -1100,6 +1102,24 @@ export default function CurrentWeek() {
           { paddingBottom: insets.bottom + 100 },
         ]}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={async () => {
+              setRefreshing(true);
+              try {
+                const json = await AsyncStorage.getItem(STORAGE_KEY);
+                if (json) {
+                  setWeeks(JSON.parse(json));
+                }
+              } catch (e) {
+                console.warn('Refresh failed', e);
+              } finally {
+                setRefreshing(false);
+              }
+            }}
+          />
+        }
       >
         {/* Hero Section */}
         <View style={styles.hero}>

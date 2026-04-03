@@ -5,12 +5,13 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
-    Modal,
-    ScrollView,
-    StatusBar,
-    Text,
-    TouchableOpacity,
-    View,
+  Modal,
+  RefreshControl,
+  ScrollView,
+  StatusBar,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createWeekAnalysisStyles } from './tabStyles';
@@ -463,6 +464,7 @@ export default function WeekAnalysisScreen() {
   const [previousWeek, setPreviousWeek] = useState<WeekData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showWeekPicker, setShowWeekPicker] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const routeMap: Record<BottomTab, string> = {
     today: '/today',
@@ -515,6 +517,12 @@ export default function WeekAnalysisScreen() {
     }, [])
   );
 
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadWeeks();
+    setRefreshing(false);
+  }, []);
+
   const selectWeek = (week: WeekData) => {
     setSelectedWeek(week);
     const idx = weeks.findIndex((w) => w.id === week.id);
@@ -537,6 +545,9 @@ export default function WeekAnalysisScreen() {
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 160 + insets.bottom }]}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
       >
         {/* Hero */}
         <View style={styles.heroSection}>
