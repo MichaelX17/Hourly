@@ -76,6 +76,7 @@ export const createTodayStyles = (Colors: any) =>
     progressHeader: {
       flexDirection: 'row',
       alignItems: 'baseline',
+      justifyContent: 'center',
       gap: 8,
       marginBottom: 16,
     },
@@ -702,7 +703,7 @@ export const createCurrentWeekStyles = (Colors: any) =>
     totalHoursText: {
       fontSize: 28,
       color: Colors.onSurface,
-      marginBottom: 16,
+      marginBottom: 4,
     },
     progressSection: {
       marginBottom: 16,
@@ -742,6 +743,7 @@ export const createCurrentWeekStyles = (Colors: any) =>
     dayRow: {
       flexDirection: 'row',
       gap: 8,
+      marginBottom: 10
     },
     dayCircle: {
       width: 32,
@@ -1232,7 +1234,10 @@ export const createMonthlyInsightsStyles = (Colors: any) =>
     },
   });
 
-export const createWeekDetailsStyles = (Colors: any) =>
+// ---------------------------------------------------------------------
+// Week Analysis Styles
+// ---------------------------------------------------------------------
+export const createWeekAnalysisStyles = (Colors: any) =>
   StyleSheet.create({
     safeArea: {
       flex: 1,
@@ -1244,54 +1249,6 @@ export const createWeekDetailsStyles = (Colors: any) =>
     scrollContent: {
       paddingHorizontal: 24,
       paddingTop: 100,
-    },
-    topBar: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingHorizontal: 24,
-      paddingBottom: 16,
-      backgroundColor: Colors.background,
-    },
-    topBarLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 16,
-    },
-    menuButton: {
-      padding: 4,
-      borderRadius: 999,
-      backgroundColor: 'rgba(0,0,0,0.05)',
-    },
-    topBarCenter: {
-      alignItems: 'center',
-    },
-    topBarTitle: {
-      fontSize: 18,
-      fontWeight: '800',
-      color: Colors.primary,
-    },
-    topBarDate: {
-      fontSize: 10,
-      fontWeight: '600',
-      textTransform: 'uppercase',
-      letterSpacing: 1,
-      color: Colors.onSurfaceVariant,
-      marginTop: 2,
-    },
-    topBarRight: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 16,
-    },
-    settingsIcon: {
-      marginRight: 4,
-    },
-    avatar: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
-      backgroundColor: Colors.surfaceContainerHighest,
     },
     heroSection: {
       marginBottom: 24,
@@ -1309,376 +1266,352 @@ export const createWeekDetailsStyles = (Colors: any) =>
       fontWeight: '800',
       color: Colors.onBackground,
     },
-    highlightsContainer: {
-      marginBottom: 32,
+    emptyState: {
+      marginTop: 48,
+      borderRadius: 24,
+      backgroundColor: Colors.surfaceContainerLow,
+      padding: 32,
+      alignItems: 'center',
+      gap: 16,
     },
-    peakCard: {
+    emptyText: {
+      color: Colors.onSurfaceVariant,
+      textAlign: 'center',
+      fontSize: 14,
+      lineHeight: 20,
+    },
+
+    // ---- Section label (shared) ----
+    sectionLabel: {
+      fontSize: 12,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 1.5,
+      color: Colors.primary,
+      marginBottom: 16,
+    },
+
+    // ---- Week Comparison ----
+    comparisonCard: {
       backgroundColor: Colors.surfaceContainerLowest,
       borderRadius: 24,
       padding: 24,
-      marginBottom: 16,
-      borderLeftWidth: 4,
-      borderLeftColor: Colors.tertiary,
+      marginBottom: 20,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.05,
       shadowRadius: 12,
       elevation: 4,
     },
-    peakLabel: {
-      fontSize: 12,
-      fontWeight: 'bold',
-      color: Colors.tertiary,
-      textTransform: 'uppercase',
-      letterSpacing: 1,
-    },
-    peakDayName: {
-      fontSize: 24,
-      fontWeight: '800',
-      color: Colors.onBackground,
-      marginTop: 8,
-    },
-    peakFooter: {
+    comparisonRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      alignItems: 'flex-end',
-      marginTop: 16,
+      alignItems: 'center',
+      gap: 12,
     },
-    peakHours: {
-      fontSize: 32,
-      fontWeight: '800',
-      color: Colors.primary,
+    comparisonMetric: {
+      flex: 1,
+      alignItems: 'center',
+      gap: 6,
     },
-    barChart: {
+    deltaChip: {
       flexDirection: 'row',
-      alignItems: 'flex-end',
+      alignItems: 'center',
       gap: 4,
-    },
-    bar: {
-      width: 12,
-      borderRadius: 6,
-      backgroundColor: Colors.surfaceContainer,
-    },
-    statsColumn: {
-      gap: 12,
-    },
-    statCard: {
-      backgroundColor: Colors.surfaceContainerLow,
-      borderRadius: 24,
-      padding: 20,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 16,
-    },
-    statIconContainer: {
-      width: 48,
-      height: 48,
-      borderRadius: 16,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    statLabel: {
-      fontSize: 12,
-      fontWeight: '600',
-      textTransform: 'uppercase',
-      color: Colors.onSurfaceVariant,
-      letterSpacing: 0.5,
-    },
-    statValue: {
-      fontSize: 24,
-      fontWeight: '800',
-      color: Colors.onBackground,
-    },
-    weekSelectorContainer: {
-      flexDirection: 'row',
-      marginBottom: 12,
-    },
-    weekChip: {
+      paddingHorizontal: 10,
+      paddingVertical: 6,
       borderRadius: 12,
-      borderWidth: 1,
-      borderColor: Colors.surfaceContainerHigh,
-      backgroundColor: Colors.surfaceContainerLowest,
-      paddingHorizontal: 14,
-      paddingVertical: 8,
-      marginRight: 8,
     },
-    weekChipSelected: {
-      backgroundColor: Colors.primary,
-      borderColor: Colors.primary,
+    deltaUp: {
+      backgroundColor: `${Colors.tertiary}12`,
     },
-    weekChipText: {
-      color: Colors.onSurface,
-      fontSize: 12,
-      fontWeight: '600',
+    deltaDown: {
+      backgroundColor: `${Colors.error}12`,
     },
-    weekChipTextSelected: {
-      color: Colors.onPrimary,
-      fontSize: 12,
-      fontWeight: '600',
+    deltaText: {
+      fontSize: 13,
+      fontWeight: '700',
     },
-    dailyBreakdownHeader: {
-      marginBottom: 16,
-      paddingHorizontal: 8,
-    },
-    dailyBreakdownTitle: {
-      fontSize: 20,
+    comparisonBigNum: {
+      fontSize: 22,
       fontWeight: '800',
       color: Colors.onBackground,
     },
-    dayCard: {
-      backgroundColor: Colors.surfaceContainerLowest,
-      borderRadius: 24,
-      marginBottom: 12,
-      overflow: 'hidden',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.05,
-      shadowRadius: 8,
-      elevation: 2,
-    },
-    peakDayCard: {
-      borderWidth: 2,
-      borderColor: `${Colors.tertiary}30`,
-    },
-    dayHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      padding: 20,
-    },
-    dayInfo: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 16,
-    },
-    dayCircle: {
-      width: 56,
-      height: 56,
-      borderRadius: 28,
-      backgroundColor: Colors.surfaceContainer,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    peakDayCircle: {
-      backgroundColor: `${Colors.tertiaryContainer}20`,
-    },
-    dayInitial: {
-      fontSize: 10,
-      fontWeight: 'bold',
-      textTransform: 'uppercase',
-      color: Colors.onSurfaceVariant,
-    },
-    dayNumber: {
-      fontSize: 18,
-      fontWeight: '800',
-      color: Colors.onBackground,
-      lineHeight: 20,
-    },
-    dayTitle: {
-      fontSize: 16,
-      fontWeight: '800',
-      color: Colors.onBackground,
-    },
-    sessionCount: {
-      fontSize: 12,
-      color: Colors.onSurfaceVariant,
-      marginTop: 2,
-    },
-    dayRight: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-    },
-    totalHours: {
-      fontSize: 18,
-      fontWeight: '800',
-      color: Colors.primary,
-    },
-    peakBadge: {
-      backgroundColor: Colors.tertiaryContainer,
-      paddingHorizontal: 8,
-      paddingVertical: 2,
-      borderRadius: 999,
-      marginTop: 4,
-    },
-    peakBadgeText: {
-      fontSize: 10,
-      fontWeight: 'bold',
-      color: Colors.onTertiaryContainer,
-      textTransform: 'uppercase',
-    },
-    sessionsContainer: {
-      paddingHorizontal: 20,
-      paddingBottom: 20,
-      gap: 12,
-    },
-    sessionItem: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      backgroundColor: Colors.surfaceContainerLow,
-      padding: 16,
-      borderRadius: 16,
-    },
-    sessionLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-      flex: 1,
-    },
-    sessionTitle: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: Colors.onBackground,
-    },
-    sessionTime: {
-      fontSize: 12,
-      color: Colors.onSurfaceVariant,
-      marginTop: 2,
-    },
-    sessionDuration: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: Colors.onBackground,
-    },
-    summaryCard: {
-      backgroundColor: Colors.surfaceContainerLowest,
-      borderRadius: 32,
-      padding: 32,
-      marginTop: 24,
-      marginBottom: 32,
-      overflow: 'hidden',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.08,
-      shadowRadius: 16,
-      elevation: 6,
-      position: 'relative',
-    },
-    blurBackground1: {
-      position: 'absolute',
-      top: -80,
-      right: -80,
-      width: 256,
-      height: 256,
-      borderRadius: 128,
-      backgroundColor: `${Colors.tertiary}10`,
-    },
-    blurBackground2: {
-      position: 'absolute',
-      bottom: -80,
-      left: -80,
-      width: 256,
-      height: 256,
-      borderRadius: 128,
-      backgroundColor: `${Colors.primary}10`,
-    },
-    summaryLabel: {
-      fontSize: 12,
-      fontWeight: 'bold',
-      color: Colors.primary,
-      textTransform: 'uppercase',
-      letterSpacing: 2,
-      textAlign: 'center',
-      marginBottom: 16,
-    },
-    totalHoursWrapper: {
-      flexDirection: 'row',
-      justifyContent: 'center',
-      alignItems: 'baseline',
-      gap: 8,
-    },
-    totalHoursLarge: {
-      fontSize: 96,
-      fontWeight: '800',
-      color: Colors.onBackground,
-      lineHeight: 100,
-    },
-    totalHoursUnit: {
-      fontSize: 28,
-      fontWeight: '800',
-      color: Colors.onSurfaceVariant,
-    },
-    trendContainer: {
-      flexDirection: 'row',
-      justifyContent: 'center',
-      alignItems: 'center',
-      gap: 8,
-      marginTop: 16,
-    },
-    trendText: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: Colors.tertiary,
-    },
-    bottomNav: {
-      position: 'absolute',
-      bottom: 0,
-      left: 0,
-      right: 0,
-      flexDirection: 'row',
-      justifyContent: 'space-around',
-      alignItems: 'center',
-      backgroundColor: 'rgba(255,255,255,0.7)',
-      borderTopLeftRadius: 24,
-      borderTopRightRadius: 24,
-      paddingVertical: 8,
-      paddingHorizontal: 16,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: -4 },
-      shadowOpacity: 0.05,
-      shadowRadius: 12,
-      elevation: 8,
-    },
-    navItem: {
-      alignItems: 'center',
-      paddingVertical: 8,
-      paddingHorizontal: 16,
-      borderRadius: 16,
-    },
-    navItemActive: {
-      backgroundColor: `${Colors.primaryFixedDim}20`,
-    },
-    navLabel: {
-      fontSize: 10,
-      marginTop: 4,
-      textTransform: 'uppercase',
-      letterSpacing: 0.5,
-      color: Colors.outline,
-    },
-    navLabelActive: {
-      color: Colors.primary,
-      fontWeight: 'bold',
-    },
-    placeholderScreen: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      paddingHorizontal: 24,
-    },
-    placeholderTitle: {
-      fontSize: 28,
-      fontWeight: 'bold',
-      color: Colors.primary,
-      marginBottom: 8,
-    },
-    placeholderSub: {
-      fontSize: 16,
+    comparisonMetricLabel: {
+      fontSize: 11,
       color: Colors.onSurfaceVariant,
       textAlign: 'center',
     },
-    emptyState: {
-      marginTop: 16,
-      borderRadius: 16,
-      backgroundColor: Colors.surfaceContainerLow,
-      padding: 20,
-      alignItems: 'center',
-    },
-    emptyText: {
+    comparisonFooter: {
+      fontSize: 12,
       color: Colors.outlineVariant,
       textAlign: 'center',
+      marginTop: 14,
     },
-    // Week selector button (fixed above BottomNav)
+
+    // ---- Daily Distribution ----
+    distributionCard: {
+      backgroundColor: Colors.surfaceContainerLowest,
+      borderRadius: 24,
+      padding: 24,
+      marginBottom: 20,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.05,
+      shadowRadius: 12,
+      elevation: 4,
+    },
+    distRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 14,
+      gap: 12,
+    },
+    distDayLabel: {
+      width: 36,
+      fontSize: 13,
+      fontWeight: '700',
+      color: Colors.onSurfaceVariant,
+    },
+    distBarTrack: {
+      flex: 1,
+      height: 10,
+      backgroundColor: Colors.surfaceContainerHigh,
+      borderRadius: 5,
+      overflow: 'hidden',
+    },
+    distBarFill: {
+      height: '100%',
+      borderRadius: 5,
+      backgroundColor: Colors.primary,
+    },
+    distHours: {
+      width: 56,
+      fontSize: 13,
+      fontWeight: '800',
+      color: Colors.onBackground,
+      textAlign: 'right',
+    },
+
+    // ---- Consistency Score ----
+    consistencyCard: {
+      backgroundColor: Colors.surfaceContainerLowest,
+      borderRadius: 24,
+      padding: 24,
+      marginBottom: 20,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.05,
+      shadowRadius: 12,
+      elevation: 4,
+    },
+    consistencyRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 24,
+    },
+    scoreRing: {
+      width: 96,
+      height: 96,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    scoreRingBg: {
+      position: 'absolute',
+      width: 88,
+      height: 88,
+      borderRadius: 44,
+      borderWidth: 6,
+      borderColor: Colors.surfaceContainerHigh,
+    },
+    scoreRingFg: {
+      position: 'absolute',
+      width: 88,
+      height: 88,
+      borderRadius: 44,
+      borderWidth: 6,
+      borderColor: Colors.primary,
+      transform: [{ rotate: '-90deg' }],
+    },
+    scoreCenter: {
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    scoreNum: {
+      fontSize: 28,
+      fontWeight: '800',
+    },
+    consistencyInfo: {
+      flex: 1,
+      gap: 8,
+    },
+    consistencyTitle: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: Colors.onBackground,
+    },
+    consistencyBadge: {
+      alignSelf: 'flex-start',
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 999,
+    },
+    consistencyBadgeText: {
+      fontSize: 12,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    streakRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    streakText: {
+      fontSize: 13,
+      color: Colors.onSurfaceVariant,
+    },
+
+    // ---- Goal Pacing ----
+    pacingCard: {
+      backgroundColor: Colors.surfaceContainerLowest,
+      borderRadius: 24,
+      padding: 24,
+      marginBottom: 20,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.05,
+      shadowRadius: 12,
+      elevation: 4,
+    },
+    pacingBarContainer: {
+      marginBottom: 12,
+    },
+    pacingBarTrack: {
+      height: 12,
+      backgroundColor: Colors.surfaceContainerHigh,
+      borderRadius: 6,
+      overflow: 'hidden',
+      position: 'relative',
+    },
+    pacingBarFill: {
+      height: '100%',
+      borderRadius: 6,
+      backgroundColor: Colors.primary,
+    },
+    pacingGoalMarker: {
+      position: 'absolute',
+      top: -4,
+      width: 2,
+      height: 20,
+    },
+    pacingGoalLine: {
+      width: 2,
+      height: 20,
+      borderRadius: 1,
+    },
+    pacingLabels: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      gap: 6,
+      marginBottom: 16,
+    },
+    pacingActual: {
+      fontSize: 24,
+      fontWeight: '800',
+      color: Colors.primary,
+    },
+    pacingGoal: {
+      fontSize: 14,
+      color: Colors.onSurfaceVariant,
+    },
+    pacingProjection: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      padding: 14,
+      borderRadius: 16,
+    },
+    pacingProjectionText: {
+      flex: 1,
+      fontSize: 13,
+      lineHeight: 18,
+    },
+
+    // ---- Notes Feed ----
+    notesFeedCard: {
+      backgroundColor: Colors.surfaceContainerLowest,
+      borderRadius: 24,
+      padding: 24,
+      marginBottom: 20,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.05,
+      shadowRadius: 12,
+      elevation: 4,
+    },
+    notesEmpty: {
+      alignItems: 'center',
+      gap: 12,
+      paddingVertical: 16,
+    },
+    notesEmptyText: {
+      fontSize: 13,
+      color: Colors.onSurfaceVariant,
+      textAlign: 'center',
+      lineHeight: 18,
+    },
+    noteItem: {
+      flexDirection: 'row',
+      marginBottom: 16,
+    },
+    noteIconCol: {
+      alignItems: 'center',
+      width: 20,
+      marginRight: 12,
+    },
+    noteDot: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      backgroundColor: Colors.primary,
+      marginTop: 4,
+    },
+    noteLine: {
+      flex: 1,
+      width: 2,
+      backgroundColor: Colors.surfaceContainerHigh,
+      marginTop: 4,
+    },
+    noteContent: {
+      flex: 1,
+      backgroundColor: Colors.surfaceContainerLow,
+      borderRadius: 16,
+      padding: 14,
+    },
+    noteHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 6,
+    },
+    noteDay: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: Colors.onBackground,
+    },
+    noteHours: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: Colors.primary,
+    },
+    noteText: {
+      fontSize: 13,
+      color: Colors.onSurfaceVariant,
+      lineHeight: 18,
+    },
+
+    // ---- Week Selector Button ----
     weekSelectorButton: {
       flexDirection: 'row' as const,
       alignItems: 'center' as const,
@@ -1713,7 +1646,8 @@ export const createWeekDetailsStyles = (Colors: any) =>
       fontWeight: '800' as const,
       color: Colors.onSurface,
     },
-    // Week picker modal
+
+    // ---- Week Picker Modal ----
     weekPickerOverlay: {
       flex: 1,
       backgroundColor: 'rgba(0,0,0,0.5)',

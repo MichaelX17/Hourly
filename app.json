@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "hourly",
+    "name": "Hourly",
     "slug": "hourly",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -34,7 +34,7 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#000000",
           "dark": {
             "backgroundColor": "#000000"
           }

@@ -6,11 +6,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
-  Platform,
-  ScrollView,
-  StatusBar,
-  Text,
-  View
+    Platform,
+    ScrollView,
+    StatusBar,
+    Text,
+    View
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createMonthlyInsightsStyles } from './tabStyles';
@@ -430,7 +430,7 @@ export default function App() {
     today: '/today',
     weekly: '/current-week',
     monthly: '/monthly-insights',
-    'week-details': '/week-details',
+    'week-analysis': '/week-analysis',
     stats: '/today',
     settings: '/today',
   };
@@ -609,7 +609,7 @@ export default function App() {
         title="Monthly Insights"
         mode={mode}
         onToggleTheme={toggleMode}
-        onAvatarPress={() => alert('Profile pressed')}
+        onAvatarPress={() => {}}
       />
       {renderContent()}
       <BottomNav activeTab={activeAppTab} onTabPress={handleNavPress} />

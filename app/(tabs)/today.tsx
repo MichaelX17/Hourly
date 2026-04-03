@@ -187,6 +187,7 @@ const getDayProgress = () => {
 const DailyProgress = () => {
   const { styles } = useTodayStyles();
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [is24H, setIs24H] = useState(false);
   const progressAnim = useState(new Animated.Value(0))[0];
 
   useEffect(() => {
@@ -212,7 +213,7 @@ const DailyProgress = () => {
   const secondsSinceMidnight = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
   const totalDaySeconds = 24 * 3600;
   const progressPercent = Math.min(100, Math.max(0, (secondsSinceMidnight / totalDaySeconds) * 100));
-  const formattedCurrentTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const formattedCurrentTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: !is24H });
   const elapsedHours = Math.floor(secondsSinceMidnight / 3600);
   const elapsedMinutes = Math.floor((secondsSinceMidnight % 3600) / 60);
   const formattedElapsed = `${elapsedHours.toString().padStart(2, '0')}h ${elapsedMinutes.toString().padStart(2, '0')}m`;
@@ -225,7 +226,9 @@ const DailyProgress = () => {
       <View>
         <Text style={[styles.progressLabel, typography.label]}>DAY TIME PROGRESS</Text>
         <View style={styles.progressHeader}>
-          <Text style={[styles.progressCurrent, typography.headline]}>{formattedCurrentTime}</Text>
+          <TouchableOpacity onPress={() => setIs24H((prev) => !prev)} activeOpacity={0.7}>
+            <Text style={[styles.progressCurrent, typography.headline]}>{formattedCurrentTime}</Text>
+          </TouchableOpacity>
           <Text style={[styles.progressGoal, typography.label]}>{Math.round(progressPercent)}%</Text>
         </View>
       </View>
@@ -448,7 +451,7 @@ export default function App() {
     today: '/today',
     weekly: '/current-week',
     monthly: '/monthly-insights',
-    'week-details': '/week-details',
+    'week-analysis': '/week-analysis',
     stats: '/today',
     settings: '/today',
   };
@@ -540,7 +543,7 @@ export default function App() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar barStyle={mode === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
-      <TopBar title="Today" mode={mode} onToggleTheme={toggleMode} onAvatarPress={() => alert('Profile pressed')} />
+      <TopBar title="Today" mode={mode} onToggleTheme={toggleMode} onAvatarPress={() => {}} />
       {renderContent()}
       <BottomNav activeTab={activeTab} onTabPress={handleNavPress} />
       {/* <FAB onPress={handleFabPress} /> */}

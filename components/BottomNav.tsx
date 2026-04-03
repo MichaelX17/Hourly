@@ -5,9 +5,9 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-export type BottomTab = 'today' | 'weekly' | 'stats' | 'settings' | 'monthly' | 'week-details';
+export type BottomTab = 'today' | 'weekly' | 'stats' | 'settings' | 'monthly' | 'week-analysis';
 
-type BottomNavHref = '/today' | '/current-week' | '/monthly-insights' | '/week-details';
+type BottomNavHref = '/today' | '/current-week' | '/monthly-insights' | '/week-analysis';
 
 type BottomTabItem = {
   key: BottomTab;
@@ -20,7 +20,7 @@ const navItems: BottomTabItem[] = [
   { key: 'today', label: 'Today', icon: 'today', href: '/today' },
   { key: 'weekly', label: 'Weekly', icon: 'calendar-view-week', href: '/current-week' },
   { key: 'monthly', label: 'Monthly', icon: 'bar-chart', href: '/monthly-insights' },
-  { key: 'week-details', label: 'Details', icon: 'schedule', href: '/week-details' },
+  { key: 'week-analysis', label: 'Analysis', icon: 'insights', href: '/week-analysis' },
 ];
 
 /**

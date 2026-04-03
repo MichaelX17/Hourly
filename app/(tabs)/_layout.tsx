@@ -40,10 +40,10 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
-          name="week-details"
+          name="week-analysis"
           options={{
-            title: 'Week Details',
-            tabBarIcon: ({ color }: { color: string }) => <IconSymbol size={28} name="list.bullet" color={color} />,
+            title: 'Week Analysis',
+            tabBarIcon: ({ color }: { color: string }) => <IconSymbol size={28} name="chart.bar" color={color} />,
           }}
         />
       </Tabs>

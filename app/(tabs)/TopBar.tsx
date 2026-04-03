@@ -11,7 +11,7 @@ type TopBarProps = {
   mode: 'light' | 'dark';
 };
 
-export function TopBar({ title, onAvatarPress, onToggleTheme, mode }: TopBarProps) {
+export function TopBar({ title, onToggleTheme, mode }: TopBarProps) {
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
   const currentDate = new Date();
@@ -43,14 +43,14 @@ export function TopBar({ title, onAvatarPress, onToggleTheme, mode }: TopBarProp
         <Text style={{ fontSize: 18, fontWeight: '800', color: colors.primary }}>{title}</Text>
         <Text style={{ fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1, color: colors.onSurfaceVariant, marginTop: 2 }}>{formattedDate}</Text>
       </View>
-      <TouchableOpacity onPress={onAvatarPress}>
+      <View>
         <Image
           source={{
             uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBud6YSLnRmcdlGYa9eMKEtESa2K4DfE7hTW9J-WudDcF9C6uSXSGnMfCRDAmHBSKl-qoY32wxth2v65993p7CpSpVeBjllNzocXshWN8qG-gEjhnW7vk9jgH6LzOlOzQiCcoezwTRgRrqlnMElT1PduKiKZfhdG1qha5K7pzmrau5c98qAixhzuBliK408FP65_GSKrYjpAUX6nlmXdpWx8WZ5yuX4S5_pEjnlL68KDSCDKPC1o_1BV9yDygd3JYCpiiZn3uB7nl4',
           }}
           style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surfaceContainerHighest, borderWidth: 2, borderColor: `${colors.primary}20` }}
         />
-      </TouchableOpacity>
+      </View>
     </View>
   );
 }
