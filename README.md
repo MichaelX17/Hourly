@@ -4,6 +4,14 @@ A modern mobile time-tracking app built with **React Native, Expo, and TypeScrip
 
 ---
 
+## 📸 Screenshots
+
+| Dark Mode | Light Mode |
+|:---:|:---:|
+| <img width="540" height="1071" alt="Weeks" src="https://github.com/user-attachments/assets/946df1d5-9f02-472f-b738-6e29080b442a" /> | <img width="540" height="1071" alt="Month Insigths" src="https://github.com/user-attachments/assets/fa5ad449-afae-49af-aef5-3bab33b37c8d" /> |
+
+---
+
 ## ✨ Features
 
 ### 📅 Weekly Time Tracking
