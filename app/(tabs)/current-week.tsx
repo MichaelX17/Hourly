@@ -258,12 +258,9 @@ const WeekViewModal = ({ week, onClose, onAlert }: WeekViewModalProps) => {
         quality: 1,
         result: 'tmpfile',
       });
-      // Copy to a descriptive filename (overwrite if exists)
-      const fileName = `hourly-${week.startDate ?? 'week'}.png`;
-      const dest = new FSFile(Paths.cache, fileName);
-      if (dest.exists) dest.delete();
-      new FSFile(uri).move(dest);
-      await Sharing.shareAsync(dest.uri, { mimeType: 'image/png' });
+      // Ensure URI has file:// scheme (captureRef may return a raw path in APK builds)
+      const fileUri = uri.startsWith('file://') ? uri : `file://${uri}`;
+      await Sharing.shareAsync(fileUri, { mimeType: 'image/png' });
     } catch {
       onAlert(t.currentWeek.error, t.currentWeek.couldNotShareSummary, 'error');
     } finally {
