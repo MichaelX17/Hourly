@@ -60,17 +60,6 @@ A modern mobile time-tracking app built with **React Native, Expo, and TypeScrip
 
 ---
 
-## 📸 Screenshots
-
-Screenshots have not been added to this repository yet. Once you capture them, you can place them here to showcase:
-
-- Today view
-- Current Week management
-- Weekly analysis dashboard
-- Monthly insights dashboard
-
----
-
 ## 🚀 Getting Started
 
 ### Prerequisites
