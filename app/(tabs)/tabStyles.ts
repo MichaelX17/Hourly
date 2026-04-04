@@ -656,7 +656,7 @@ export const createCurrentWeekStyles = (Colors: any) =>
     weekCard: {
       backgroundColor: Colors.surface,
       borderRadius: 16,
-      padding: 20,
+      overflow: 'hidden',
       marginBottom: 16,
       shadowColor: Colors.inverseSurface,
       shadowOffset: { width: 0, height: 2 },
@@ -666,6 +666,25 @@ export const createCurrentWeekStyles = (Colors: any) =>
     },
     weekCardTouchable: {
       width: '100%',
+      padding: 20,
+    },
+    weekCardFooter: {
+      flexDirection: 'row',
+      borderTopWidth: 1,
+      borderTopColor: Colors.surfaceContainerHigh,
+      marginBottom: 4,
+    },
+    weekCardFooterButton: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 12,
+    },
+    weekCardFooterText: {
+      fontSize: 13,
+      color: Colors.primary,
     },
     editWeekButton: {
       flexDirection: 'row',
@@ -743,7 +762,7 @@ export const createCurrentWeekStyles = (Colors: any) =>
     dayRow: {
       flexDirection: 'row',
       gap: 8,
-      marginBottom: 10
+      marginBottom: 10,
     },
     dayCircle: {
       width: 32,
@@ -987,9 +1006,9 @@ export const createMonthlyInsightsStyles = (Colors: any) =>
       padding: 16,
       justifyContent: 'space-between',
       height: 160,
-      shadowColor: '#000',
+      shadowColor: '#7f5af0',
       shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.04,
+      shadowOpacity: 0.18,
       shadowRadius: 12,
       elevation: 4,
     },
@@ -1160,6 +1179,7 @@ export const createMonthlyInsightsStyles = (Colors: any) =>
       fontSize: 14,
       color: Colors.onSurfaceVariant,
       lineHeight: 20,
+      marginBottom: 16,
     },
     sessionCard: {
       flexDirection: 'row',

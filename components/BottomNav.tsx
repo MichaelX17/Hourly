@@ -1,4 +1,5 @@
 import { useAppTheme } from '@/app/(tabs)/ThemeContext';
+import { useI18n } from '@/i18n';
 import { MaterialIcons } from '@expo/vector-icons';
 import { usePathname, useRouter } from 'expo-router';
 import React from 'react';
@@ -17,10 +18,10 @@ type BottomTabItem = {
 };
 
 const navItems: BottomTabItem[] = [
-  { key: 'today', label: 'Today', icon: 'today', href: '/today' },
-  { key: 'weekly', label: 'Weekly', icon: 'calendar-view-week', href: '/current-week' },
-  { key: 'monthly', label: 'Monthly', icon: 'bar-chart', href: '/monthly-insights' },
-  { key: 'week-analysis', label: 'Analysis', icon: 'insights', href: '/week-analysis' },
+  { key: 'today', label: 'today', icon: 'today', href: '/today' },
+  { key: 'weekly', label: 'weekly', icon: 'calendar-view-week', href: '/current-week' },
+  { key: 'monthly', label: 'monthly', icon: 'bar-chart', href: '/monthly-insights' },
+  { key: 'week-analysis', label: 'analysis', icon: 'insights', href: '/week-analysis' },
 ];
 
 /**
@@ -63,10 +64,18 @@ export const BottomNav = ({ activeTab, onTabPress }: BottomNavProps) => {
   const pathname = usePathname();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useI18n();
 
   const routeTab = resolveTabByPath(pathname);
   const normalizedTab = routeTab || activeTab || 'today';
   const effectiveTab = normalizeBottomNavTab(normalizedTab);
+
+  const navLabels: Record<string, string> = {
+    today: t.nav.today,
+    weekly: t.nav.weekly,
+    monthly: t.nav.monthly,
+    analysis: t.nav.analysis,
+  };
 
   const handlePress = (item: BottomTabItem) => {
     if (onTabPress) {
@@ -96,12 +105,12 @@ export const BottomNav = ({ activeTab, onTabPress }: BottomNavProps) => {
             onPress={() => handlePress(item)}
             accessibilityRole="button"
             accessibilityState={{ selected: isActive }}
-            accessibilityLabel={`${item.label} tab`}
+            accessibilityLabel={`${navLabels[item.label] || item.label} tab`}
             testID={`bottom-nav-${item.key}`}
           >
             <MaterialIcons name={item.icon} size={24} color={iconColor} />
             <Text style={[styles.navLabel, { color: isActive ? colors.primary : colors.onSurfaceVariant }]}> 
-              {item.label}
+              {navLabels[item.label] || item.label}
             </Text>
           </Pressable>
         );

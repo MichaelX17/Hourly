@@ -1,4 +1,5 @@
 import { BottomNav, BottomTab } from '@/components/BottomNav';
+import { useI18n } from '@/i18n';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
@@ -10,6 +11,7 @@ import * as Sharing from 'expo-sharing';
 import React, { useEffect, useState } from 'react';
 import {
   Animated,
+  KeyboardAvoidingView,
   Modal,
   NativeModules,
   Platform,
@@ -90,35 +92,48 @@ type WeekCardProps = {
   onDelete: (week: WeekData) => void;
   onView: (week: WeekData) => void;
   onExport: (week: WeekData) => void;
+  isNewest?: boolean;
 };
 
-const WeekCard = ({ data, onEdit, onDelete, onView, onExport }: WeekCardProps) => {
+const WeekCard = ({ data, onEdit, onDelete, onView, onExport, isNewest = false }: WeekCardProps) => {
   const { headline, body, label } = useTypography();
   const { styles, colors } = useCurrentWeekStyles();
+  const { t, locale } = useI18n();
+
+  const displayDateRange = (data.startDate && data.endDate)
+    ? `${formatDateLabel(new Date(`${data.startDate}T00:00:00`), locale)} - ${formatDateLabel(new Date(`${data.endDate}T00:00:00`), locale)}`
+    : data.dateRange;
 
   return (
-    <View style={styles.weekCard}>
+    <View style={[
+      styles.weekCard,
+      isNewest && {
+        backgroundColor: colors.surfaceContainerLow,
+        borderLeftWidth: 3,
+        borderLeftColor: colors.primary,
+      },
+    ]}>
       <TouchableOpacity style={styles.weekCardTouchable} onPress={() => onView(data)} activeOpacity={0.85}>
         {data.isActive && (
           <View style={styles.activeBadge}>
-            <Text style={[styles.activeBadgeText, label]}>Active</Text>
+            <Text style={[styles.activeBadgeText, label]}>{t.currentWeek.active}</Text>
           </View>
         )}
         <View>
-          <Text style={[styles.dateRangeText, body]}>{data.dateRange}</Text>
+          <Text style={[styles.dateRangeText, body]}>{displayDateRange}</Text>
           <Text style={[styles.totalHoursText, headline]}>{data.totalHours}</Text>
         </View>
         <View style={styles.progressSection}>
         <View style={styles.progressHeader}>
           <Text style={[styles.progressLabel, body]}>
-            {data.activeDays}/{data.totalDays} days with activity
+            {data.activeDays}/{data.totalDays} {t.currentWeek.daysWithActivity}
           </Text>
           {data.customLabel ? (
             <Text style={[styles.customLabel, { color: data.customLabelColor }]}>
               {data.customLabel}
             </Text>
           ) : (
-            <Text style={[styles.goalText, body]}>{data.goalPercentage}% of goal</Text>
+            <Text style={[styles.goalText, body]}>{data.goalPercentage}% {t.currentWeek.ofGoal}</Text>
           )}
         </View>
         <View style={styles.progressBarContainer}>
@@ -136,7 +151,7 @@ const WeekCard = ({ data, onEdit, onDelete, onView, onExport }: WeekCardProps) =
       <View style={styles.dayIndicators}>
         <View style={styles.dayRow}>
           {data.days.map((status, idx) => {
-            const letters = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+            const letters = t.common.dayLetters;
             const letter = letters[idx] ?? '-';
             const isActive = status === 'active';
             return (
@@ -162,32 +177,31 @@ const WeekCard = ({ data, onEdit, onDelete, onView, onExport }: WeekCardProps) =
             );
           })}
         </View>
-        <MaterialIcons name="arrow-forward" size={20} color={colors.outlineVariant} />
       </View>
     </TouchableOpacity>
-    <View style={{ flexDirection: 'row', borderTopWidth: 1, borderTopColor: colors.surfaceContainerHigh }}>
+    <View style={styles.weekCardFooter}>
       <TouchableOpacity
-        style={[styles.editWeekButton, { flex: 1 }]}
+        style={styles.weekCardFooterButton}
         onPress={() => onEdit(data)}
       >
-        <MaterialIcons name="edit" size={16} color={colors.primary} />
-        <Text style={[styles.editWeekText, body]}>Edit</Text>
+        <MaterialIcons name="edit" size={15} color={colors.primary} />
+        <Text style={[styles.weekCardFooterText, { color: colors.primary }, body]}>{t.currentWeek.edit}</Text>
       </TouchableOpacity>
-      <View style={{ width: 1, backgroundColor: colors.surfaceContainerHigh }} />
+      <View style={{ width: 1, backgroundColor: colors.surfaceContainerHigh, marginVertical: 10 }} />
       <TouchableOpacity
-        style={[styles.editWeekButton, { flex: 1 }]}
+        style={styles.weekCardFooterButton}
         onPress={() => onExport(data)}
       >
-        <MaterialIcons name="file-upload" size={16} color={colors.tertiary} />
-        <Text style={[styles.editWeekText, { color: colors.tertiary }, body]}>Export</Text>
+        <MaterialIcons name="file-upload" size={15} color={colors.tertiary} />
+        <Text style={[styles.weekCardFooterText, { color: colors.tertiary }, body]}>{t.currentWeek.exportLabel}</Text>
       </TouchableOpacity>
-      <View style={{ width: 1, backgroundColor: colors.surfaceContainerHigh }} />
+      <View style={{ width: 1, backgroundColor: colors.surfaceContainerHigh, marginVertical: 10 }} />
       <TouchableOpacity
-        style={[styles.editWeekButton, { flex: 1 }]}
+        style={styles.weekCardFooterButton}
         onPress={() => onDelete(data)}
       >
-        <MaterialIcons name="delete-outline" size={16} color={colors.error} />
-        <Text style={[styles.editWeekText, { color: colors.error }, body]}>Delete</Text>
+        <MaterialIcons name="delete-outline" size={15} color={colors.error} />
+        <Text style={[styles.weekCardFooterText, { color: colors.error }, body]}>{t.currentWeek.delete}</Text>
       </TouchableOpacity>
     </View>
   </View>
@@ -204,8 +218,10 @@ type WeekViewModalProps = {
 const WeekViewModal = ({ week, onClose, onAlert }: WeekViewModalProps) => {
   const { headline, body, label } = useTypography();
   const { styles, colors } = useCurrentWeekStyles();
+  const { t, locale } = useI18n();
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const slideAnim = React.useRef(new Animated.Value(60)).current;
+  const shareViewRef = React.useRef<View>(null);
 
   React.useEffect(() => {
     if (week) {
@@ -219,23 +235,37 @@ const WeekViewModal = ({ week, onClose, onAlert }: WeekViewModalProps) => {
     }
   }, [week]);
 
-  const shareCardRef = React.useRef<any>(null);
   const [isSharing, setIsSharing] = React.useState(false);
 
   if (!week) return null;
 
-  const letters = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const displayDateRange = (week.startDate && week.endDate)
+    ? `${formatDateLabel(new Date(`${week.startDate}T00:00:00`), locale)} - ${formatDateLabel(new Date(`${week.endDate}T00:00:00`), locale)}`
+    : week.dateRange;
+
+  const letters = t.common.dayAbbreviations;
+
+  const accentColorShare = week.barColor ?? colors.primary;
+  const goalReachedShare = week.goalPercentage >= 100;
 
   const handleShare = async () => {
-    if (!shareCardRef.current) return;
     try {
       setIsSharing(true);
-      // Small delay to ensure the hidden view has fully rendered
-      await new Promise(resolve => setTimeout(resolve, 100));
-      const uri = await captureRef(shareCardRef, { format: 'png', quality: 1 });
-      await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Share week summary' });
+      // Give the off-screen view time to fully lay out
+      await new Promise((r) => setTimeout(r, 150));
+      const uri = await captureRef(shareViewRef, {
+        format: 'png',
+        quality: 1,
+        result: 'tmpfile',
+      });
+      // Copy to a descriptive filename (overwrite if exists)
+      const fileName = `hourly-${week.startDate ?? 'week'}.png`;
+      const dest = new FSFile(Paths.cache, fileName);
+      if (dest.exists) dest.delete();
+      new FSFile(uri).move(dest);
+      await Sharing.shareAsync(dest.uri, { mimeType: 'image/png' });
     } catch {
-      onAlert('Error', 'Could not share the week summary.', 'error');
+      onAlert(t.currentWeek.error, t.currentWeek.couldNotShareSummary, 'error');
     } finally {
       setIsSharing(false);
     }
@@ -299,7 +329,7 @@ const WeekViewModal = ({ week, onClose, onAlert }: WeekViewModalProps) => {
           {/* Date label */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 }}>
             <MaterialIcons name="date-range" size={12} color={accentColor} />
-            <Text style={[{ fontSize: 12, color: accentColor }, label]}>{week.dateRange}</Text>
+            <Text style={[{ fontSize: 12, color: accentColor }, label]}>{displayDateRange}</Text>
           </View>
 
           {/* Total hours */}
@@ -307,7 +337,7 @@ const WeekViewModal = ({ week, onClose, onAlert }: WeekViewModalProps) => {
             {week.totalHours}
           </Text>
           <Text style={[{ fontSize: 12, color: colors.onSurfaceVariant, marginTop: 3 }, body]}>
-            total this week
+            {t.currentWeek.totalThisWeek}
           </Text>
 
           {/* Badges */}
@@ -319,7 +349,7 @@ const WeekViewModal = ({ week, onClose, onAlert }: WeekViewModalProps) => {
                   backgroundColor: accentColor, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999,
                 }}>
                   <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.7)' }} />
-                  <Text style={[{ fontSize: 11, color: '#fff' }, label]}>Active</Text>
+                  <Text style={[{ fontSize: 11, color: '#fff' }, label]}>{t.currentWeek.active}</Text>
                 </View>
               )}
               {week.customLabel && (
@@ -347,14 +377,14 @@ const WeekViewModal = ({ week, onClose, onAlert }: WeekViewModalProps) => {
               <View style={{ flex: 1, padding: 16, alignItems: 'center' }}>
                 <Text style={[{ fontSize: 28, color: colors.onSurface }, headline]}>{week.activeDays}</Text>
                 <Text style={[{ fontSize: 11, color: colors.onSurfaceVariant, textAlign: 'center', marginTop: 3 }, body]}>
-                  active{'\n'}days
+                  {t.currentWeek.activeDays}
                 </Text>
               </View>
               <View style={{ width: 1, backgroundColor: colors.surfaceContainerHigh, marginVertical: 12 }} />
               <View style={{ flex: 1, padding: 16, alignItems: 'center' }}>
                 <Text style={[{ fontSize: 28, color: colors.onSurface }, headline]}>{week.totalDays}</Text>
                 <Text style={[{ fontSize: 11, color: colors.onSurfaceVariant, textAlign: 'center', marginTop: 3 }, body]}>
-                  total{'\n'}days
+                  {t.currentWeek.totalDays}
                 </Text>
               </View>
               <View style={{ width: 1, backgroundColor: colors.surfaceContainerHigh, marginVertical: 12 }} />
@@ -366,7 +396,7 @@ const WeekViewModal = ({ week, onClose, onAlert }: WeekViewModalProps) => {
                   {week.goalPercentage}%
                 </Text>
                 <Text style={[{ fontSize: 11, color: goalReached ? accentColor : colors.onSurfaceVariant, textAlign: 'center', marginTop: 3 }, body]}>
-                  {goalReached ? 'goal ✓' : 'of goal'}
+                  {goalReached ? t.currentWeek.goalReached : t.currentWeek.ofGoal}
                 </Text>
               </View>
             </View>
@@ -375,7 +405,7 @@ const WeekViewModal = ({ week, onClose, onAlert }: WeekViewModalProps) => {
           {/* Progress */}
           <View style={{ backgroundColor: colors.surfaceContainerLow, borderRadius: 20, padding: 16 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
-              <Text style={[{ fontSize: 13, color: colors.onSurfaceVariant }, label]}>Weekly progress</Text>
+              <Text style={[{ fontSize: 13, color: colors.onSurfaceVariant }, label]}>{t.currentWeek.weeklyProgress}</Text>
               <Text style={[{ fontSize: 22, color: accentColor }, headline]}>{week.goalPercentage}%</Text>
             </View>
             <View style={{ height: 12, backgroundColor: colors.surfaceContainerHigh, borderRadius: 999, overflow: 'hidden' }}>
@@ -397,7 +427,7 @@ const WeekViewModal = ({ week, onClose, onAlert }: WeekViewModalProps) => {
             <View style={{ backgroundColor: colors.surfaceContainerLow, borderRadius: 20, padding: 16 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 14 }}>
                 <MaterialIcons name="view-list" size={14} color={colors.onSurfaceVariant} />
-                <Text style={[{ fontSize: 13, color: colors.onSurfaceVariant }, label]}>Daily breakdown</Text>
+                <Text style={[{ fontSize: 13, color: colors.onSurfaceVariant }, label]}>{t.currentWeek.dailyBreakdown}</Text>
               </View>
               {week.dayEntries.map((entry, idx) => {
                 const dayLabel = letters[idx] ?? `D${idx + 1}`;
@@ -443,71 +473,101 @@ const WeekViewModal = ({ week, onClose, onAlert }: WeekViewModalProps) => {
 
   const sharedStyle = { flex: 1, justifyContent: 'center' as const, alignItems: 'center' as const, padding: 24 };
 
-  // Full-content card for sharing (off-screen, no scroll/height constraints)
-  const shareCardContent = (
+  // Off-screen full-content view for image capture
+  const shareableContent = (
     <View
-      ref={shareCardRef}
+      ref={shareViewRef}
+      collapsable={false}
       style={{
         position: 'absolute',
-        left: -9999,
-        top: 0,
-        width: 380,
+        top: -99999,
+        left: 0,
+        width: 390,
         backgroundColor: colors.surface,
         borderRadius: 28,
         overflow: 'hidden',
       }}
-      collapsable={false}
     >
       {/* Accent strip */}
-      <View style={{ height: 4, backgroundColor: accentColor }} />
+      <View style={{ height: 4, backgroundColor: accentColorShare }} />
 
       {/* Hero Header */}
-      <View style={{ backgroundColor: accentColor + '12', padding: 20, paddingBottom: 22 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 }}>
-          <MaterialIcons name="date-range" size={12} color={accentColor} />
-          <Text style={[{ fontSize: 12, color: accentColor }, label]}>{week.dateRange}</Text>
+      <View style={{ backgroundColor: accentColorShare + '12', padding: 20, paddingBottom: 22 }}>
+        {/* App branding */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 16 }}>
+          <MaterialIcons name="schedule" size={14} color={accentColorShare} />
+          <Text style={[{ fontSize: 12, color: accentColorShare }, label]}>Hourly</Text>
         </View>
+
+        {/* Date label */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 }}>
+          <MaterialIcons name="date-range" size={12} color={accentColorShare} />
+          <Text style={[{ fontSize: 12, color: accentColorShare }, label]}>{displayDateRange}</Text>
+        </View>
+
+        {/* Total hours */}
         <Text style={[{ fontSize: 48, color: colors.onSurface, lineHeight: 52 }, headline]}>
           {week.totalHours}
         </Text>
         <Text style={[{ fontSize: 12, color: colors.onSurfaceVariant, marginTop: 3 }, body]}>
-          total this week
+          {t.currentWeek.totalThisWeek}
         </Text>
+
+        {/* Badges */}
         {(week.isActive || week.customLabel) && (
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
             {week.isActive && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: accentColor, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 }}>
+              <View style={{
+                flexDirection: 'row', alignItems: 'center', gap: 5,
+                backgroundColor: accentColorShare, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999,
+              }}>
                 <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.7)' }} />
-                <Text style={[{ fontSize: 11, color: '#fff' }, label]}>Active</Text>
+                <Text style={[{ fontSize: 11, color: '#fff' }, label]}>{t.currentWeek.active}</Text>
               </View>
             )}
             {week.customLabel && (
-              <View style={{ backgroundColor: (week.customLabelColor ?? colors.primary) + '22', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1, borderColor: (week.customLabelColor ?? colors.primary) + '55' }}>
-                <Text style={[{ fontSize: 11, color: week.customLabelColor ?? colors.primary }, label]}>{week.customLabel}</Text>
+              <View style={{
+                backgroundColor: (week.customLabelColor ?? colors.primary) + '22',
+                paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999,
+                borderWidth: 1, borderColor: (week.customLabelColor ?? colors.primary) + '55',
+              }}>
+                <Text style={[{ fontSize: 11, color: week.customLabelColor ?? colors.primary }, label]}>
+                  {week.customLabel}
+                </Text>
               </View>
             )}
           </View>
         )}
       </View>
 
-      {/* Content */}
       <View style={{ padding: 16, gap: 12 }}>
-        {/* Metrics */}
+        {/* Metrics strip */}
         <View style={{ backgroundColor: colors.surfaceContainerLow, borderRadius: 20, overflow: 'hidden' }}>
           <View style={{ flexDirection: 'row' }}>
             <View style={{ flex: 1, padding: 16, alignItems: 'center' }}>
               <Text style={[{ fontSize: 28, color: colors.onSurface }, headline]}>{week.activeDays}</Text>
-              <Text style={[{ fontSize: 11, color: colors.onSurfaceVariant, textAlign: 'center', marginTop: 3 }, body]}>active{'\n'}days</Text>
+              <Text style={[{ fontSize: 11, color: colors.onSurfaceVariant, textAlign: 'center', marginTop: 3 }, body]}>
+                {t.currentWeek.activeDays}
+              </Text>
             </View>
             <View style={{ width: 1, backgroundColor: colors.surfaceContainerHigh, marginVertical: 12 }} />
             <View style={{ flex: 1, padding: 16, alignItems: 'center' }}>
               <Text style={[{ fontSize: 28, color: colors.onSurface }, headline]}>{week.totalDays}</Text>
-              <Text style={[{ fontSize: 11, color: colors.onSurfaceVariant, textAlign: 'center', marginTop: 3 }, body]}>total{'\n'}days</Text>
+              <Text style={[{ fontSize: 11, color: colors.onSurfaceVariant, textAlign: 'center', marginTop: 3 }, body]}>
+                {t.currentWeek.totalDays}
+              </Text>
             </View>
             <View style={{ width: 1, backgroundColor: colors.surfaceContainerHigh, marginVertical: 12 }} />
-            <View style={{ flex: 1, padding: 16, alignItems: 'center', backgroundColor: goalReached ? accentColor + '18' : 'transparent' }}>
-              <Text style={[{ fontSize: 28, color: goalReached ? accentColor : colors.onSurface }, headline]}>{week.goalPercentage}%</Text>
-              <Text style={[{ fontSize: 11, color: goalReached ? accentColor : colors.onSurfaceVariant, textAlign: 'center', marginTop: 3 }, body]}>{goalReached ? 'goal ✓' : 'of goal'}</Text>
+            <View style={{
+              flex: 1, padding: 16, alignItems: 'center',
+              backgroundColor: goalReachedShare ? accentColorShare + '18' : 'transparent',
+            }}>
+              <Text style={[{ fontSize: 28, color: goalReachedShare ? accentColorShare : colors.onSurface }, headline]}>
+                {week.goalPercentage}%
+              </Text>
+              <Text style={[{ fontSize: 11, color: goalReachedShare ? accentColorShare : colors.onSurfaceVariant, textAlign: 'center', marginTop: 3 }, body]}>
+                {goalReachedShare ? t.currentWeek.goalReached : t.currentWeek.ofGoal}
+              </Text>
             </View>
           </View>
         </View>
@@ -515,11 +575,16 @@ const WeekViewModal = ({ week, onClose, onAlert }: WeekViewModalProps) => {
         {/* Progress */}
         <View style={{ backgroundColor: colors.surfaceContainerLow, borderRadius: 20, padding: 16 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
-            <Text style={[{ fontSize: 13, color: colors.onSurfaceVariant }, label]}>Weekly progress</Text>
-            <Text style={[{ fontSize: 22, color: accentColor }, headline]}>{week.goalPercentage}%</Text>
+            <Text style={[{ fontSize: 13, color: colors.onSurfaceVariant }, label]}>{t.currentWeek.weeklyProgress}</Text>
+            <Text style={[{ fontSize: 22, color: accentColorShare }, headline]}>{week.goalPercentage}%</Text>
           </View>
           <View style={{ height: 12, backgroundColor: colors.surfaceContainerHigh, borderRadius: 999, overflow: 'hidden' }}>
-            <View style={{ height: '100%', width: `${Math.min(week.goalPercentage, 100)}%`, backgroundColor: accentColor, borderRadius: 999 }} />
+            <View style={{
+              height: '100%',
+              width: `${Math.min(week.goalPercentage, 100)}%`,
+              backgroundColor: accentColorShare,
+              borderRadius: 999,
+            }} />
           </View>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 5 }}>
             <Text style={[{ fontSize: 10, color: colors.onSurfaceVariant }, body]}>0%</Text>
@@ -532,7 +597,7 @@ const WeekViewModal = ({ week, onClose, onAlert }: WeekViewModalProps) => {
           <View style={{ backgroundColor: colors.surfaceContainerLow, borderRadius: 20, padding: 16 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 14 }}>
               <MaterialIcons name="view-list" size={14} color={colors.onSurfaceVariant} />
-              <Text style={[{ fontSize: 13, color: colors.onSurfaceVariant }, label]}>Daily breakdown</Text>
+              <Text style={[{ fontSize: 13, color: colors.onSurfaceVariant }, label]}>{t.currentWeek.dailyBreakdown}</Text>
             </View>
             {week.dayEntries.map((entry, idx) => {
               const dayLabel = letters[idx] ?? `D${idx + 1}`;
@@ -540,12 +605,28 @@ const WeekViewModal = ({ week, onClose, onAlert }: WeekViewModalProps) => {
               const maxHrs = Math.max(...week.dayEntries!.map((e) => e.hours), 1);
               const pct = (entry.hours / maxHrs) * 100;
               return (
-                <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: idx < week.dayEntries!.length - 1 ? 10 : 0 }}>
-                  <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: isActive ? accentColor : colors.surfaceContainerHigh, justifyContent: 'center', alignItems: 'center' }}>
-                    <Text style={[{ fontSize: 10, color: isActive ? '#fff' : colors.outline }, label]}>{dayLabel}</Text>
+                <View
+                  key={idx}
+                  style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 10,
+                    marginBottom: idx < week.dayEntries!.length - 1 ? 10 : 0,
+                  }}
+                >
+                  <View style={{
+                    width: 36, height: 36, borderRadius: 10,
+                    backgroundColor: isActive ? accentColorShare : colors.surfaceContainerHigh,
+                    justifyContent: 'center', alignItems: 'center',
+                  }}>
+                    <Text style={[{ fontSize: 10, color: isActive ? '#fff' : colors.outline }, label]}>
+                      {dayLabel}
+                    </Text>
                   </View>
                   <View style={{ flex: 1, height: 6, backgroundColor: colors.surfaceContainerHigh, borderRadius: 999, overflow: 'hidden' }}>
-                    <View style={{ height: '100%', width: `${pct}%`, backgroundColor: accentColor, borderRadius: 999, opacity: isActive ? 1 : 0 }} />
+                    <View style={{
+                      height: '100%', width: `${pct}%`,
+                      backgroundColor: accentColorShare, borderRadius: 999,
+                      opacity: isActive ? 1 : 0,
+                    }} />
                   </View>
                   <Text style={[{ fontSize: 12, color: isActive ? colors.onSurface : colors.outline, width: 40, textAlign: 'right' }, label]}>
                     {formatEntryTime(entry.hours)}
@@ -561,6 +642,7 @@ const WeekViewModal = ({ week, onClose, onAlert }: WeekViewModalProps) => {
 
   return (
     <Modal visible={!!week} transparent animationType="none" onRequestClose={onClose}>
+      {shareableContent}
       <Animated.View style={[{ flex: 1 }, { opacity: fadeAnim }]}>
         {isBlurAvailable ? (
           <BlurView intensity={60} tint="dark" style={sharedStyle}>
@@ -571,14 +653,14 @@ const WeekViewModal = ({ week, onClose, onAlert }: WeekViewModalProps) => {
             {overlayContent}
           </View>
         )}
-        {shareCardContent}
       </Animated.View>
     </Modal>
   );
 };
 
-const formatDateLabel = (date: Date) => {
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+const formatDateLabel = (date: Date, locale: string = 'en') => {
+  const dateLocale = locale === 'es' ? 'es-ES' : 'en-US';
+  return date.toLocaleDateString(dateLocale, { month: 'short', day: 'numeric' });
 };
 
 const formatHoursLabel = (totalHours: number) => {
@@ -707,6 +789,7 @@ const mergeAndSort = (a: WeekData[], b: WeekData[]): WeekData[] => {
 export default function CurrentWeek() {
   const router = useRouter();
   const { mode, colors, toggleMode } = useAppTheme();
+  const { t, locale } = useI18n();
   const { fontsLoaded, headline, body, label } = useTypography();
   const insets = useSafeAreaInsets();
 
@@ -750,7 +833,7 @@ export default function CurrentWeek() {
   };
 
   const today = new Date();
-  const formattedDate = today.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const formattedDate = today.toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const minStartDate = addDays(today, -6);
 
   const adjustWeekStart = (offsetDays: number) => {
@@ -827,9 +910,9 @@ export default function CurrentWeek() {
       const { json, fileName } = buildExportFile(pendingExportWeeks);
       const file = new FSFile(Paths.cache, fileName);
       file.write(json);
-      await Sharing.shareAsync(file.uri, { mimeType: 'application/json', dialogTitle: 'Export weeks' });
+      await Sharing.shareAsync(file.uri, { mimeType: 'application/json', dialogTitle: t.currentWeek.exportWeeksTitle });
     } catch {
-      setAppAlert({ title: 'Export failed', message: 'Could not export weeks.', type: 'error' });
+      setAppAlert({ title: t.currentWeek.exportFailed, message: t.currentWeek.couldNotExport, type: 'error' });
     }
   };
 
@@ -847,15 +930,15 @@ export default function CurrentWeek() {
           'application/json',
         );
         await StorageAccessFramework.writeAsStringAsync(fileUri, json);
-        setAppAlert({ title: 'Downloaded', message: `File saved as ${fileName}`, type: 'success' });
+        setAppAlert({ title: t.currentWeek.downloaded, message: t.currentWeek.fileSavedAs(fileName), type: 'success' });
       } else {
         // iOS: save via share sheet (native "Save to Files")
         const file = new FSFile(Paths.cache, fileName);
         file.write(json);
-        await Sharing.shareAsync(file.uri, { mimeType: 'application/json', dialogTitle: 'Save file' });
+        await Sharing.shareAsync(file.uri, { mimeType: 'application/json', dialogTitle: t.currentWeek.saveFileTitle });
       }
     } catch {
-      setAppAlert({ title: 'Download failed', message: 'Could not save the file.', type: 'error' });
+      setAppAlert({ title: t.currentWeek.downloadFailed, message: t.currentWeek.couldNotSaveFile, type: 'error' });
     }
   };
 
@@ -877,12 +960,12 @@ export default function CurrentWeek() {
       try {
         parsed = JSON.parse(content);
       } catch {
-        setAppAlert({ title: 'Invalid file', message: 'The selected file is not valid JSON.', type: 'error' });
+        setAppAlert({ title: t.currentWeek.invalidFile, message: t.currentWeek.notValidJson, type: 'error' });
         return;
       }
 
       if (!isValidExportPayload(parsed)) {
-        setAppAlert({ title: 'Invalid format', message: 'This file is not a valid Hourly export.', type: 'error' });
+        setAppAlert({ title: t.currentWeek.invalidFormat, message: t.currentWeek.notValidHourlyExport, type: 'error' });
         return;
       }
 
@@ -892,8 +975,8 @@ export default function CurrentWeek() {
         // No conflicts — merge directly
         setWeeks((prev) => mergeAndSort(prev, clean));
         setAppAlert({
-          title: 'Import successful',
-          message: `${clean.length} week${clean.length !== 1 ? 's' : ''} imported.`,
+          title: t.currentWeek.importSuccessful,
+          message: t.currentWeek.weeksImported(clean.length),
           type: 'success',
         });
       } else {
@@ -903,7 +986,7 @@ export default function CurrentWeek() {
         setShowImportConflicts(true);
       }
     } catch {
-      setAppAlert({ title: 'Import failed', message: 'Could not read the selected file.', type: 'error' });
+      setAppAlert({ title: t.currentWeek.importFailed, message: t.currentWeek.couldNotReadFile, type: 'error' });
     }
   };
 
@@ -911,7 +994,7 @@ export default function CurrentWeek() {
     // Check all conflicts have been resolved
     const unresolved = importConflicts.filter((c) => c.choice === null);
     if (unresolved.length > 0) {
-      setAppAlert({ title: 'Resolve all conflicts', message: `${unresolved.length} conflict${unresolved.length !== 1 ? 's' : ''} still need your decision.`, type: 'error' });
+      setAppAlert({ title: t.currentWeek.resolveAllConflicts, message: t.currentWeek.conflictsNeedDecision(unresolved.length), type: 'error' });
       return;
     }
 
@@ -937,26 +1020,26 @@ export default function CurrentWeek() {
 
     const importedCount = importClean.length + importConflicts.filter((c) => c.choice === 'imported').length;
     setAppAlert({
-      title: 'Import complete',
-      message: `${importedCount} week${importedCount !== 1 ? 's' : ''} imported, ${importConflicts.filter((c) => c.choice === 'existing').length} kept existing.`,
+      title: t.currentWeek.importComplete,
+      message: t.currentWeek.weeksImportedKeptExisting(importedCount, importConflicts.filter((c) => c.choice === 'existing').length),
       type: 'success',
     });
   };
 
   const handleSaveWeek = async () => {
     if (!isValidIsoDate(weekStart)) {
-      setAppAlert({ title: 'Invalid date', message: 'Please enter start date in YYYY-MM-DD format.', type: 'error' });
+      setAppAlert({ title: t.currentWeek.invalidDate, message: t.currentWeek.enterStartDate, type: 'error' });
       return;
     }
 
     const start = new Date(`${weekStart}T00:00:00`);
     if (start > today || start < minStartDate) {
-      setAppAlert({ title: 'Date out of range', message: 'Start date must be between 6 days ago and today.', type: 'error' });
+      setAppAlert({ title: t.currentWeek.dateOutOfRange, message: t.currentWeek.startDateRange, type: 'error' });
       return;
     }
 
     if (weekDays < 1 || weekDays > 7) {
-      setAppAlert({ title: 'Invalid week length', message: 'Weeks must contain 1 to 7 days.', type: 'error' });
+      setAppAlert({ title: t.currentWeek.invalidWeekLength, message: t.currentWeek.weeksMustContain, type: 'error' });
       return;
     }
 
@@ -971,8 +1054,8 @@ export default function CurrentWeek() {
     if (overlapping.length > 0) {
       const conflictRange = overlapping[0].dateRange;
       setAppAlert({
-        title: 'Date range conflict',
-        message: `This week overlaps with an existing week (${conflictRange}). Each week must cover a unique date range.`,
+        title: t.currentWeek.dateRangeConflict,
+        message: t.currentWeek.dateRangeConflictMsg(conflictRange),
         type: 'error',
       });
       return;
@@ -994,7 +1077,7 @@ export default function CurrentWeek() {
 
     const newWeek: WeekData = {
       id: selectedWeekId || `${Date.now()}`,
-      dateRange: `${formatDateLabel(start)} - ${formatDateLabel(end)}`,
+      dateRange: `${formatDateLabel(start, locale)} - ${formatDateLabel(end, locale)}`,
       totalHours: formatHoursLabel(total),
       activeDays,
       totalDays: weekDays,
@@ -1008,10 +1091,10 @@ export default function CurrentWeek() {
 
     if (modalMode === 'edit' && selectedWeekId) {
       setWeeks((prev) => prev.map((w) => (w.id === selectedWeekId ? newWeek : w)));
-      setAppAlert({ title: 'Week updated', message: 'Week changes have been saved.', type: 'success' });
+      setAppAlert({ title: t.currentWeek.weekUpdated, message: t.currentWeek.weekChangesSaved, type: 'success' });
     } else {
       setWeeks((prev) => [newWeek, ...prev]);
-      setAppAlert({ title: 'Week created', message: 'New week created successfully.', type: 'success' });
+      setAppAlert({ title: t.currentWeek.weekCreated, message: t.currentWeek.newWeekCreated, type: 'success' });
     }
 
     setShowWeekModal(false);
@@ -1088,7 +1171,7 @@ export default function CurrentWeek() {
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar barStyle={mode === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
       <TopBar
-        title="Current Week"
+        title={t.topBar.currentWeek}
         mode={mode}
         onToggleTheme={toggleMode}
         onAvatarPress={() => {}}
@@ -1123,10 +1206,10 @@ export default function CurrentWeek() {
       >
         {/* Hero Section */}
         <View style={styles.hero}>
-          <Text style={[styles.heroTitle, headline]}>Weeks Overview</Text>
+          <Text style={[styles.heroTitle, headline]}>{t.currentWeek.weeksOverview}</Text>
           <Text style={[styles.heroSubtitle, body]}>
-            Review your journey. Fluid architecting of your most valuable resource:{' '}
-            <Text style={styles.highlight}>time</Text>.
+            {t.currentWeek.heroSubtitle}
+            <Text style={styles.highlight}>{t.currentWeek.heroHighlight}</Text>.
           </Text>
         </View>
 
@@ -1140,7 +1223,7 @@ export default function CurrentWeek() {
             }}
           >
             <MaterialIcons name="add" size={24} color={colors.primary} />
-            <Text style={[styles.outlineButtonText, headline]}>Add Week</Text>
+            <Text style={[styles.outlineButtonText, headline]}>{t.currentWeek.addWeek}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.outlineButton, { backgroundColor: colors.surfaceContainerHigh }]}
@@ -1159,9 +1242,9 @@ export default function CurrentWeek() {
                 showsVerticalScrollIndicator={false}
               >
                 <Text style={[styles.modalTitle, headline]}>
-                  {modalMode === 'edit' ? 'Edit Week' : 'Create New Week'}
+                  {modalMode === 'edit' ? t.currentWeek.editWeek : t.currentWeek.createNewWeek}
                 </Text>
-                <Text style={styles.modalLabel}>Start date *</Text>
+                <Text style={styles.modalLabel}>{t.currentWeek.startDate}</Text>
                 <TouchableOpacity
                   style={[styles.modalInput, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
                   onPress={() => {
@@ -1170,12 +1253,12 @@ export default function CurrentWeek() {
                   }}
                 >
                   <Text style={{ color: weekStart ? colors.onSurface : colors.onSurfaceVariant }}>
-                    {weekStart || 'Select start date'}
+                    {weekStart || t.currentWeek.selectStartDate}
                   </Text>
                   <MaterialIcons name="calendar-today" size={16} color={colors.onSurfaceVariant} />
                 </TouchableOpacity>
 
-                <Text style={styles.modalLabel}>Days in week (1-7)</Text>
+                <Text style={styles.modalLabel}>{t.currentWeek.daysInWeek}</Text>
                 <View style={styles.rowInput}>
                 <TouchableOpacity
                   style={styles.smallButton}
@@ -1192,11 +1275,11 @@ export default function CurrentWeek() {
                 </TouchableOpacity>
               </View>
 
-              <Text style={styles.modalLabel}>Time per day</Text>
+              <Text style={styles.modalLabel}>{t.currentWeek.timePerDay}</Text>
               {Array.from({ length: weekDays }).map((_, index) => {
                 let dayDateLabel = '';
                 if (isValidIsoDate(weekStart)) {
-                  dayDateLabel = formatDateLabel(addDays(new Date(`${weekStart}T00:00:00`), index));
+                  dayDateLabel = formatDateLabel(addDays(new Date(`${weekStart}T00:00:00`), index), locale);
                 }
                 const totalMins = dayMinutes[index] ?? 0;
                 const displayH = Math.floor(totalMins / 60);
@@ -1227,7 +1310,7 @@ export default function CurrentWeek() {
                     </View>
                     <View style={{ flex: 1, marginLeft: 12 }}>
                       <Text style={[{ fontSize: 13, color: colors.onSurface }, label]}>
-                        Day {index + 1}{dayDateLabel ? ` · ${dayDateLabel}` : ''}
+                        {t.currentWeek.day} {index + 1}{dayDateLabel ? ` · ${dayDateLabel}` : ''}
                       </Text>
                       {notePreview ? (
                         <Text style={{ fontSize: 11, color: colors.onSurfaceVariant, marginTop: 2 }} numberOfLines={1}>
@@ -1259,13 +1342,13 @@ export default function CurrentWeek() {
                     resetWeekForm();
                   }}
                 >
-                  <Text style={[styles.outlineButtonText, body]}>Cancel</Text>
+                  <Text style={[styles.outlineButtonText, body]}>{t.currentWeek.cancel}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.gradientButton, { flex: 1, marginLeft: 8 }]}
                   onPress={handleSaveWeek}
                 >
-                  <Text style={[styles.buttonText, headline]}>{modalMode === 'edit' ? 'Update' : 'Create'}</Text>
+                  <Text style={[styles.buttonText, headline]}>{modalMode === 'edit' ? t.currentWeek.update : t.currentWeek.create}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1279,7 +1362,10 @@ export default function CurrentWeek() {
           animationType="slide"
           onRequestClose={() => setSelectedDayIndex(null)}
         >
-          <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+          <KeyboardAvoidingView
+            style={{ flex: 1, justifyContent: 'flex-end' }}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
             <Pressable
               style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)' }}
               onPress={() => setSelectedDayIndex(null)}
@@ -1303,13 +1389,13 @@ export default function CurrentWeek() {
                 const currentM = totalMins % 60;
                 let dayDateLabel = '';
                 if (isValidIsoDate(weekStart)) {
-                  dayDateLabel = ` · ${formatDateLabel(addDays(new Date(`${weekStart}T00:00:00`), idx))}`;
+                  dayDateLabel = ` · ${formatDateLabel(addDays(new Date(`${weekStart}T00:00:00`), idx), locale)}`;
                 }
 
                 return (
                   <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                     <Text style={[{ fontSize: 13, color: colors.onSurfaceVariant, textTransform: 'uppercase', letterSpacing: 1 }, label]}>
-                      Day {idx + 1}{dayDateLabel}
+                      {t.currentWeek.day} {idx + 1}{dayDateLabel}
                     </Text>
 
                     {/* Big time display */}
@@ -1319,7 +1405,7 @@ export default function CurrentWeek() {
 
                     {/* Quick presets */}
                     <Text style={[{ fontSize: 12, color: colors.onSurfaceVariant, marginBottom: 8 }, label]}>
-                      Quick set
+                      {t.currentWeek.quickSet}
                     </Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
                       <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -1354,7 +1440,7 @@ export default function CurrentWeek() {
 
                     {/* Hours grid */}
                     <Text style={[{ fontSize: 12, color: colors.onSurfaceVariant, marginBottom: 8 }, label]}>
-                      Hours
+                      {t.currentWeek.hours}
                     </Text>
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
                       {Array.from({ length: 13 }, (_, h) => (
@@ -1385,7 +1471,7 @@ export default function CurrentWeek() {
 
                     {/* Minutes grid */}
                     <Text style={[{ fontSize: 12, color: colors.onSurfaceVariant, marginBottom: 8 }, label]}>
-                      Minutes
+                      {t.currentWeek.minutes}
                     </Text>
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 20 }}>
                       {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => (
@@ -1416,7 +1502,7 @@ export default function CurrentWeek() {
 
                     {/* Notes input */}
                     <Text style={[{ fontSize: 12, color: colors.onSurfaceVariant, marginBottom: 8 }, label]}>
-                      Note (optional)
+                      {t.currentWeek.noteOptional}
                     </Text>
                     <TextInput
                       style={{
@@ -1428,7 +1514,7 @@ export default function CurrentWeek() {
                         minHeight: 60,
                         textAlignVertical: 'top',
                       }}
-                      placeholder="Add a note for this day..."
+                      placeholder={t.currentWeek.addNoteForDay}
                       placeholderTextColor={colors.onSurfaceVariant}
                       multiline
                       value={dayNotes[idx] ?? ''}
@@ -1454,19 +1540,19 @@ export default function CurrentWeek() {
                 }}
                 onPress={() => setSelectedDayIndex(null)}
               >
-                <Text style={[{ fontSize: 15, color: '#fff', fontWeight: '600' }, body]}>Done</Text>
+                <Text style={[{ fontSize: 15, color: '#fff', fontWeight: '600' }, body]}>{t.currentWeek.done}</Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </Modal>
 
         {/* Weeks Cards */}
         {weeks.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={[styles.emptyText, body]}>No weeks yet. Create one to begin tracking your hours.</Text>
+            <Text style={[styles.emptyText, body]}>{t.currentWeek.noWeeksYet}</Text>
           </View>
         ) : (
-          weeks.map((week) => (
+          weeks.map((week, index) => (
             <WeekCard
               key={week.id}
               data={week}
@@ -1474,6 +1560,7 @@ export default function CurrentWeek() {
               onDelete={handleDeleteWeek}
               onView={(w) => setSelectedWeekForView(w)}
               onExport={(w) => handleExportWeeks([w])}
+              isNewest={index === 0}
             />
           ))
         )}
@@ -1514,11 +1601,11 @@ export default function CurrentWeek() {
               </View>
 
               <Text style={[{ fontSize: 18, color: colors.onSurface, textAlign: 'center', marginBottom: 8 }, headline]}>
-                Delete week?
+                {t.currentWeek.deleteWeek}
               </Text>
               <Text style={[{ fontSize: 14, color: colors.onSurfaceVariant, textAlign: 'center', lineHeight: 20, marginBottom: 28 }, body]}>
                 {weekToDelete?.dateRange}
-                {'\n'}This action cannot be undone.
+                {'\n'}{t.currentWeek.cannotBeUndone}
               </Text>
 
               <TouchableOpacity
@@ -1534,7 +1621,7 @@ export default function CurrentWeek() {
                   setWeekToDelete(null);
                 }}
               >
-                <Text style={[{ fontSize: 15, color: '#fff' }, headline]}>Delete</Text>
+                <Text style={[{ fontSize: 15, color: '#fff' }, headline]}>{t.currentWeek.delete}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -1546,7 +1633,7 @@ export default function CurrentWeek() {
                 }}
                 onPress={() => setWeekToDelete(null)}
               >
-                <Text style={[{ fontSize: 15, color: colors.onSurface }, body]}>Cancel</Text>
+                <Text style={[{ fontSize: 15, color: colors.onSurface }, body]}>{t.currentWeek.cancel}</Text>
               </TouchableOpacity>
             </Pressable>
           </Pressable>
@@ -1585,10 +1672,10 @@ export default function CurrentWeek() {
                 }}
               />
               <Text style={[{ fontSize: 18, fontWeight: '600', color: colors.onSurface, marginBottom: 4 }, headline]}>
-                Select start date
+                {t.currentWeek.selectStartDateTitle}
               </Text>
               <Text style={[{ fontSize: 13, color: colors.onSurfaceVariant, marginBottom: 24 }, body]}>
-                Choose from the last 7 days
+                {t.currentWeek.chooseFromLast7Days}
               </Text>
 
               {/* Day chips */}
@@ -1598,8 +1685,8 @@ export default function CurrentWeek() {
                   const isSelected = datePickerTemp === iso;
                   const isToday = iso === today.toISOString().slice(0, 10);
                   const dayLabel = isToday
-                    ? 'Today'
-                    : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()];
+                    ? t.common.today
+                    : t.common.days[date.getDay()];
                   return (
                     <TouchableOpacity
                       key={iso}
@@ -1650,7 +1737,7 @@ export default function CurrentWeek() {
                   setShowDatePicker(false);
                 }}
               >
-                <Text style={[{ fontSize: 15, color: '#fff', fontWeight: '600' }, body]}>Confirm</Text>
+                <Text style={[{ fontSize: 15, color: '#fff', fontWeight: '600' }, body]}>{t.currentWeek.confirm}</Text>
               </TouchableOpacity>
 
               {/* Cancel */}
@@ -1658,7 +1745,7 @@ export default function CurrentWeek() {
                 style={{ paddingVertical: 12, alignItems: 'center' }}
                 onPress={() => setShowDatePicker(false)}
               >
-                <Text style={[{ fontSize: 15, color: colors.onSurface }, body]}>Cancel</Text>
+                <Text style={[{ fontSize: 15, color: colors.onSurface }, body]}>{t.currentWeek.cancel}</Text>
               </TouchableOpacity>
             </Pressable>
           </Pressable>
@@ -1733,7 +1820,7 @@ export default function CurrentWeek() {
                 }}
                 onPress={() => setAppAlert(null)}
               >
-                <Text style={[{ fontSize: 15, color: '#fff', fontWeight: '600' }, body]}>OK</Text>
+                <Text style={[{ fontSize: 15, color: '#fff', fontWeight: '600' }, body]}>{t.currentWeek.ok}</Text>
               </TouchableOpacity>
             </Pressable>
           </Pressable>
@@ -1767,10 +1854,10 @@ export default function CurrentWeek() {
               </View>
 
               <Text style={[{ fontSize: 18, color: colors.onSurface, textAlign: 'center', marginBottom: 4 }, headline]}>
-                Import & Export
+                {t.currentWeek.importExport}
               </Text>
               <Text style={[{ fontSize: 13, color: colors.onSurfaceVariant, textAlign: 'center', marginBottom: 24 }, body]}>
-                Transfer your week data between devices
+                {t.currentWeek.transferData}
               </Text>
 
               <TouchableOpacity
@@ -1785,8 +1872,8 @@ export default function CurrentWeek() {
                   <MaterialIcons name="file-download" size={22} color={colors.tertiary} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[{ fontSize: 15, color: colors.onSurface }, headline]}>Import Weeks</Text>
-                  <Text style={[{ fontSize: 12, color: colors.onSurfaceVariant, marginTop: 2 }, body]}>Load weeks from a JSON file</Text>
+                  <Text style={[{ fontSize: 15, color: colors.onSurface }, headline]}>{t.currentWeek.importWeeks}</Text>
+                  <Text style={[{ fontSize: 12, color: colors.onSurfaceVariant, marginTop: 2 }, body]}>{t.currentWeek.loadFromJson}</Text>
                 </View>
                 <MaterialIcons name="chevron-right" size={20} color={colors.outlineVariant} />
               </TouchableOpacity>
@@ -1805,9 +1892,9 @@ export default function CurrentWeek() {
                   <MaterialIcons name="file-upload" size={22} color={colors.primary} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[{ fontSize: 15, color: colors.onSurface }, headline]}>Export All Weeks</Text>
+                  <Text style={[{ fontSize: 15, color: colors.onSurface }, headline]}>{t.currentWeek.exportAllWeeks}</Text>
                   <Text style={[{ fontSize: 12, color: colors.onSurfaceVariant, marginTop: 2 }, body]}>
-                    {weeks.length} week{weeks.length !== 1 ? 's' : ''} will be exported
+                    {t.currentWeek.weeksWillBeExported(weeks.length)}
                   </Text>
                 </View>
                 <MaterialIcons name="chevron-right" size={20} color={colors.outlineVariant} />
@@ -1821,7 +1908,7 @@ export default function CurrentWeek() {
                 }}
                 onPress={() => setShowDataMenu(false)}
               >
-                <Text style={[{ fontSize: 15, color: colors.onSurface }, body]}>Close</Text>
+                <Text style={[{ fontSize: 15, color: colors.onSurface }, body]}>{t.currentWeek.close}</Text>
               </TouchableOpacity>
             </Pressable>
           </Pressable>
@@ -1848,11 +1935,11 @@ export default function CurrentWeek() {
                 }}>
                   <MaterialIcons name="file-upload" size={26} color={colors.primary} />
                 </View>
-                <Text style={[{ fontSize: 18, color: colors.onSurface }, headline]}>Export</Text>
+                <Text style={[{ fontSize: 18, color: colors.onSurface }, headline]}>{t.currentWeek.export}</Text>
                 <Text style={[{ fontSize: 13, color: colors.onSurfaceVariant, marginTop: 4, textAlign: 'center' }, body]}>
                   {pendingExportWeeks.length === 1
-                    ? 'How would you like to export this week?'
-                    : `How would you like to export ${pendingExportWeeks.length} weeks?`}
+                    ? t.currentWeek.howToExportSingle
+                    : t.currentWeek.howToExportMultiple(pendingExportWeeks.length)}
                 </Text>
               </View>
 
@@ -1868,8 +1955,8 @@ export default function CurrentWeek() {
                   <MaterialIcons name="share" size={22} color={colors.tertiary} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[{ fontSize: 15, color: colors.onSurface }, headline]}>Share</Text>
-                  <Text style={[{ fontSize: 12, color: colors.onSurfaceVariant, marginTop: 2 }, body]}>Send via apps or AirDrop</Text>
+                  <Text style={[{ fontSize: 15, color: colors.onSurface }, headline]}>{t.currentWeek.share}</Text>
+                  <Text style={[{ fontSize: 12, color: colors.onSurfaceVariant, marginTop: 2 }, body]}>{t.currentWeek.sendViaApps}</Text>
                 </View>
                 <MaterialIcons name="chevron-right" size={20} color={colors.outlineVariant} />
               </TouchableOpacity>
@@ -1886,8 +1973,8 @@ export default function CurrentWeek() {
                   <MaterialIcons name="save-alt" size={22} color={colors.primary} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[{ fontSize: 15, color: colors.onSurface }, headline]}>Download</Text>
-                  <Text style={[{ fontSize: 12, color: colors.onSurfaceVariant, marginTop: 2 }, body]}>Save to device storage</Text>
+                  <Text style={[{ fontSize: 15, color: colors.onSurface }, headline]}>{t.currentWeek.download}</Text>
+                  <Text style={[{ fontSize: 12, color: colors.onSurfaceVariant, marginTop: 2 }, body]}>{t.currentWeek.saveToDevice}</Text>
                 </View>
                 <MaterialIcons name="chevron-right" size={20} color={colors.outlineVariant} />
               </TouchableOpacity>
@@ -1900,7 +1987,7 @@ export default function CurrentWeek() {
                 }}
                 onPress={() => setShowExportModal(false)}
               >
-                <Text style={[{ fontSize: 15, color: colors.onSurface }, body]}>Cancel</Text>
+                <Text style={[{ fontSize: 15, color: colors.onSurface }, body]}>{t.currentWeek.cancel}</Text>
               </TouchableOpacity>
             </Pressable>
           </Pressable>
@@ -1928,10 +2015,9 @@ export default function CurrentWeek() {
                     <MaterialIcons name="warning" size={22} color={colors.tertiary} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={[{ fontSize: 18, color: colors.onSurface }, headline]}>Date Conflicts</Text>
+                    <Text style={[{ fontSize: 18, color: colors.onSurface }, headline]}>{t.currentWeek.dateConflicts}</Text>
                     <Text style={[{ fontSize: 12, color: colors.onSurfaceVariant, marginTop: 2 }, body]}>
-                      {importConflicts.length} conflict{importConflicts.length !== 1 ? 's' : ''} found
-                      {importClean.length > 0 ? ` · ${importClean.length} will import cleanly` : ''}
+                      {t.currentWeek.conflictsFound(importConflicts.length, importClean.length)}
                     </Text>
                   </View>
                 </View>
@@ -1946,7 +2032,7 @@ export default function CurrentWeek() {
                     borderColor: conflict.choice ? `${colors.primary}30` : `${colors.tertiary}30`,
                   }}>
                     <Text style={[{ fontSize: 13, color: colors.onSurfaceVariant, marginBottom: 12, textAlign: 'center' }, label]}>
-                      Overlapping date range
+                      {t.currentWeek.overlappingDateRange}
                     </Text>
 
                     {/* Existing week option */}
@@ -1971,13 +2057,13 @@ export default function CurrentWeek() {
                       />
                       <View style={{ flex: 1 }}>
                         <Text style={[{ fontSize: 11, color: colors.primary, textTransform: 'uppercase', letterSpacing: 0.5 }, label]}>
-                          Keep Existing
+                          {t.currentWeek.keepExisting}
                         </Text>
                         <Text style={[{ fontSize: 14, color: colors.onSurface, marginTop: 2 }, headline]}>
                           {conflict.existing.dateRange}
                         </Text>
                         <Text style={[{ fontSize: 12, color: colors.onSurfaceVariant, marginTop: 1 }, body]}>
-                          {conflict.existing.totalHours} · {conflict.existing.activeDays}/{conflict.existing.totalDays} days
+                          {conflict.existing.totalHours} · {conflict.existing.activeDays}/{conflict.existing.totalDays} {t.currentWeek.daysLabel}
                         </Text>
                       </View>
                     </TouchableOpacity>
@@ -2004,13 +2090,13 @@ export default function CurrentWeek() {
                       />
                       <View style={{ flex: 1 }}>
                         <Text style={[{ fontSize: 11, color: colors.tertiary, textTransform: 'uppercase', letterSpacing: 0.5 }, label]}>
-                          Use Imported
+                          {t.currentWeek.useImported}
                         </Text>
                         <Text style={[{ fontSize: 14, color: colors.onSurface, marginTop: 2 }, headline]}>
                           {conflict.imported.dateRange}
                         </Text>
                         <Text style={[{ fontSize: 12, color: colors.onSurfaceVariant, marginTop: 1 }, body]}>
-                          {conflict.imported.totalHours} · {conflict.imported.activeDays}/{conflict.imported.totalDays} days
+                          {conflict.imported.totalHours} · {conflict.imported.activeDays}/{conflict.imported.totalDays} {t.currentWeek.daysLabel}
                         </Text>
                       </View>
                     </TouchableOpacity>
@@ -2031,7 +2117,7 @@ export default function CurrentWeek() {
                     fontSize: 15,
                     color: importConflicts.every((c) => c.choice !== null) ? '#fff' : colors.onSurfaceVariant,
                   }, headline]}>
-                    Confirm Import
+                    {t.currentWeek.confirmImport}
                   </Text>
                 </TouchableOpacity>
 
@@ -2047,7 +2133,7 @@ export default function CurrentWeek() {
                     setImportClean([]);
                   }}
                 >
-                  <Text style={[{ fontSize: 15, color: colors.onSurface }, body]}>Cancel Import</Text>
+                  <Text style={[{ fontSize: 15, color: colors.onSurface }, body]}>{t.currentWeek.cancelImport}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -2056,9 +2142,9 @@ export default function CurrentWeek() {
 
         {/* Monthly summary */}
         <View style={styles.monthlySummary}>
-          <Text style={[styles.monthlySummaryTitle, body]}>Current month totals</Text>
+          <Text style={[styles.monthlySummaryTitle, body]}>{t.currentWeek.currentMonthTotals}</Text>
           <Text style={[styles.monthlySummaryValue, headline]}>{formatHoursLabel(monthHours)}</Text>
-          <Text style={[styles.monthlySummarySub, body]}>{monthDaysWorked} days worked</Text>
+          <Text style={[styles.monthlySummarySub, body]}>{monthDaysWorked} {t.currentWeek.daysWorked}</Text>
         </View>
       </ScrollView>
       <BottomNav activeTab={activeAppTab} onTabPress={handleNavPress} />

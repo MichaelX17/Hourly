@@ -1,3 +1,4 @@
+import { I18nProvider } from '@/i18n';
 import { Tabs } from 'expo-router';
 import React from 'react';
 
@@ -9,6 +10,7 @@ export default function TabLayout() {
   const colorScheme = useColorScheme();
 
   return (
+    <I18nProvider>
     <ThemeProvider>
       <Tabs
         screenOptions={{
@@ -48,5 +50,6 @@ export default function TabLayout() {
         />
       </Tabs>
     </ThemeProvider>
+    </I18nProvider>
   );
 }

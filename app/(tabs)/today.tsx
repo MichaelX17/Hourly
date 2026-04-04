@@ -1,4 +1,5 @@
 import { BottomNav, BottomTab } from '@/components/BottomNav';
+import { useI18n } from '@/i18n';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -121,11 +122,12 @@ const daySummaryData: DaySummaryEntry[] = [
   { id: 'd5', dayName: 'Fri', workedHours: 8.0, workedLabel: '8h 00m', progressPercent: 100 },
 ];
 
-const getShortDayName = (date: Date): string => {
-  return date.toLocaleDateString('en-US', { weekday: 'short' }).slice(0, 3);
+const getShortDayName = (date: Date, locale: string = 'en'): string => {
+  const dateLocale = locale === 'es' ? 'es-ES' : 'en-US';
+  return date.toLocaleDateString(dateLocale, { weekday: 'short' }).slice(0, 3);
 };
 
-const getLast5DaySummaryFromWeeks = (weeks: WeekData[]): DaySummaryEntry[] => {
+const getLast5DaySummaryFromWeeks = (weeks: WeekData[], locale: string = 'en'): DaySummaryEntry[] => {
   const dailyMap = new Map<string, number>();
 
   weeks.forEach((week) => {
@@ -147,7 +149,7 @@ const getLast5DaySummaryFromWeeks = (weeks: WeekData[]): DaySummaryEntry[] => {
   return sortedDates.map((date) => {
     const hours = dailyMap.get(date) || 0;
     const d = new Date(date);
-    const dayName = getShortDayName(d);
+    const dayName = getShortDayName(d, locale);
     const workedLabel = `${Math.floor(hours)}h ${Math.round((hours % 1) * 60)
       .toString()
       .padStart(2, '0')}m`;
@@ -186,6 +188,7 @@ const getDayProgress = () => {
 // ---- Sección de progreso diario (avance del día en tiempo)
 const DailyProgress = () => {
   const { styles } = useTodayStyles();
+  const { t } = useI18n();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [is24H, setIs24H] = useState(false);
   const progressAnim = useState(new Animated.Value(0))[0];
@@ -224,7 +227,7 @@ const DailyProgress = () => {
   return (
     <View style={styles.progressSection}>
       <View>
-        <Text style={[styles.progressLabel, typography.label]}>DAY TIME PROGRESS</Text>
+        <Text style={[styles.progressLabel, typography.label]}>{t.today.dayTimeProgress}</Text>
         <View style={styles.progressHeader}>
           <TouchableOpacity onPress={() => setIs24H((prev) => !prev)} activeOpacity={0.7}>
             <Text style={[styles.progressCurrent, typography.headline]}>{formattedCurrentTime}</Text>
@@ -232,7 +235,7 @@ const DailyProgress = () => {
           <Text style={[styles.progressGoal, typography.label]}>{Math.round(progressPercent)}%</Text>
         </View>
       </View>
-      <Text style={[styles.progressSubText, typography.body]}>{`Elapsed: ${formattedElapsed} · Remaining: ${formattedRemaining}`}</Text>
+      <Text style={[styles.progressSubText, typography.body]}>{`${t.today.elapsed}: ${formattedElapsed} · ${t.today.remaining}: ${formattedRemaining}`}</Text>
       <View style={styles.progressBarContainer}>
         <Animated.View style={[styles.progressBarFill, { width: progressAnim.interpolate({
           inputRange: [0, 100],
@@ -403,6 +406,7 @@ export default function App() {
   const router = useRouter();
   const pathname = usePathname();
   const { mode, colors, toggleMode } = useAppTheme();
+  const { t, locale } = useI18n();
   const [activeTab, setActiveTab] = useState<BottomTab>('today');
   const [weeks, setWeeks] = useState<WeekData[]>([]);
   const [daySummary, setDaySummary] = useState<DaySummaryEntry[]>([]);
@@ -442,10 +446,10 @@ export default function App() {
   }, [loadWeeksFromStorage]);
 
   useEffect(() => {
-    const summary = getLast5DaySummaryFromWeeks(weeks);
+    const summary = getLast5DaySummaryFromWeeks(weeks, locale);
     console.log('Day summary:', summary);
     setDaySummary(summary);
-  }, [weeks]);
+  }, [weeks, locale]);
 
   const routeMap: Record<BottomTab, string> = {
     today: '/today',
@@ -478,14 +482,14 @@ export default function App() {
       return (
         <View style={styles.placeholderScreen}>
           <Text style={[styles.placeholderTitle, typography.headline]}>
-            {activeTab === 'weekly' ? 'Weekly Overview' : activeTab === 'stats' ? 'Stats' : 'Settings'}
+            {activeTab === 'weekly' ? t.today.weeklyOverview : activeTab === 'stats' ? t.today.stats : t.today.settings}
           </Text>
           <Text style={[styles.placeholderSub, typography.body]}>
             {activeTab === 'weekly'
-              ? 'Review your journey'
+              ? t.today.reviewYourJourney
               : activeTab === 'stats'
-              ? 'Insights and analytics'
-              : 'App preferences'}
+              ? t.today.insightsAndAnalytics
+              : t.today.appPreferences}
           </Text>
         </View>
       );
@@ -508,13 +512,13 @@ export default function App() {
 
         {/* Last 5 days summary */}
         <View style={styles.timelineSubHeader}>
-          <Text style={[styles.timelineHeaderTitle, typography.headline]}>Last 5 Days</Text>
-          <Text style={[styles.seeAllText, typography.label]}>8h goal</Text>
+          <Text style={[styles.timelineHeaderTitle, typography.headline]}>{t.today.last5Days}</Text>
+          <Text style={[styles.seeAllText, typography.label]}>{t.today.goalLabel}</Text>
         </View>
 
         {daySummary.length === 0 ? (
           <View style={styles.noDaysCard}>
-            <Text style={[styles.noDaysText, typography.body]}>No Days To Show</Text>
+            <Text style={[styles.noDaysText, typography.body]}>{t.today.noDaysToShow}</Text>
           </View>
         ) : (
           daySummary.map((entry) => <DaySummaryItem key={entry.id} entry={entry} />)
@@ -543,7 +547,7 @@ export default function App() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar barStyle={mode === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
-      <TopBar title="Today" mode={mode} onToggleTheme={toggleMode} onAvatarPress={() => {}} />
+      <TopBar title={t.topBar.today} mode={mode} onToggleTheme={toggleMode} onAvatarPress={() => {}} />
       {renderContent()}
       <BottomNav activeTab={activeTab} onTabPress={handleNavPress} />
       {/* <FAB onPress={handleFabPress} /> */}

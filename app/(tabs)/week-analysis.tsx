@@ -1,4 +1,5 @@
 import { BottomNav, BottomTab } from '@/components/BottomNav';
+import { useI18n } from '@/i18n';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
@@ -68,9 +69,19 @@ const formatHM = (hours: number) => {
   return `${h}h ${m}m`;
 };
 
-const getDayLabel = (dateString: string) => {
+const formatDateRange = (week: WeekData, locale: string): string => {
+  if (week.startDate && week.endDate) {
+    const dateLocale = locale === 'es' ? 'es-ES' : 'en-US';
+    const fmt = (d: Date) => d.toLocaleDateString(dateLocale, { month: 'short', day: 'numeric' });
+    return `${fmt(new Date(`${week.startDate}T00:00:00`))} - ${fmt(new Date(`${week.endDate}T00:00:00`))}`;
+  }
+  return week.dateRange;
+};
+
+const getDayLabel = (dateString: string, locale: string = 'en') => {
   const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', { weekday: 'short' });
+  const dateLocale = locale === 'es' ? 'es-ES' : 'en-US';
+  return date.toLocaleDateString(dateLocale, { weekday: 'short' });
 };
 
 /** Consistency score 0-100: measures how evenly hours are spread across active days */
@@ -112,6 +123,7 @@ const WeekComparison = ({
   previous: WeekData | null;
 }) => {
   const { styles, colors } = useWeekAnalysisStyles();
+  const { t, locale } = useI18n();
 
   const curHours = current ? parseFloat(current.totalHours) || 0 : 0;
   const prevHours = previous ? parseFloat(previous.totalHours) || 0 : 0;
@@ -125,7 +137,7 @@ const WeekComparison = ({
 
   return (
     <View style={styles.comparisonCard}>
-      <Text style={[styles.sectionLabel, typography.label]}>Week over Week</Text>
+      <Text style={[styles.sectionLabel, typography.label]}>{t.weekAnalysis.weekOverWeek}</Text>
       <View style={styles.comparisonRow}>
         {/* Hours delta */}
         <View style={styles.comparisonMetric}>
@@ -146,7 +158,7 @@ const WeekComparison = ({
               {formatHM(delta)}
             </Text>
           </View>
-          <Text style={[styles.comparisonMetricLabel, typography.body]}>hours vs prev</Text>
+          <Text style={[styles.comparisonMetricLabel, typography.body]}>{t.weekAnalysis.hoursVsPrev}</Text>
         </View>
 
         {/* Percentage change */}
@@ -155,7 +167,7 @@ const WeekComparison = ({
             {isUp ? '+' : ''}
             {pctChange}%
           </Text>
-          <Text style={[styles.comparisonMetricLabel, typography.body]}>change</Text>
+          <Text style={[styles.comparisonMetricLabel, typography.body]}>{t.weekAnalysis.change}</Text>
         </View>
 
         {/* Active days delta */}
@@ -164,18 +176,18 @@ const WeekComparison = ({
             {activeDelta >= 0 ? '+' : ''}
             {activeDelta}
           </Text>
-          <Text style={[styles.comparisonMetricLabel, typography.body]}>active days</Text>
+          <Text style={[styles.comparisonMetricLabel, typography.body]}>{t.weekAnalysis.activeDays}</Text>
         </View>
       </View>
 
       {previous && (
         <Text style={[styles.comparisonFooter, typography.body]}>
-          Compared to {previous.dateRange}
+          {t.weekAnalysis.comparedTo(formatDateRange(previous, locale))}
         </Text>
       )}
       {!previous && (
         <Text style={[styles.comparisonFooter, typography.body]}>
-          No previous week to compare
+          {t.weekAnalysis.noPreviousWeek}
         </Text>
       )}
     </View>
@@ -185,19 +197,20 @@ const WeekComparison = ({
 /** Daily Distribution — horizontal bar chart sorted by hours */
 const DailyDistribution = ({ entries }: { entries: DayEntry[] }) => {
   const { styles, colors } = useWeekAnalysisStyles();
+  const { t, locale } = useI18n();
   const maxHours = Math.max(...entries.map((e) => e.hours), 1);
   const sorted = [...entries].sort((a, b) => b.hours - a.hours);
 
   return (
     <View style={styles.distributionCard}>
-      <Text style={[styles.sectionLabel, typography.label]}>Daily Distribution</Text>
+      <Text style={[styles.sectionLabel, typography.label]}>{t.weekAnalysis.dailyDistribution}</Text>
       {sorted.map((entry) => {
         const pct = (entry.hours / maxHours) * 100;
         const isTop = entry.hours === maxHours && maxHours > 0;
         return (
           <View key={entry.date} style={styles.distRow}>
             <Text style={[styles.distDayLabel, typography.label, isTop && { color: colors.tertiary }]}>
-              {getDayLabel(entry.date)}
+              {getDayLabel(entry.date, locale)}
             </Text>
             <View style={styles.distBarTrack}>
               <View
@@ -221,6 +234,7 @@ const DailyDistribution = ({ entries }: { entries: DayEntry[] }) => {
 /** Consistency Score */
 const ConsistencyScore = ({ entries }: { entries: DayEntry[] }) => {
   const { styles, colors } = useWeekAnalysisStyles();
+  const { t } = useI18n();
   const score = calcConsistency(entries);
   const streak = calcStreak(entries);
 
@@ -231,9 +245,9 @@ const ConsistencyScore = ({ entries }: { entries: DayEntry[] }) => {
   };
 
   const getScoreLabel = () => {
-    if (score >= 75) return 'Very Consistent';
-    if (score >= 40) return 'Moderate';
-    return 'Irregular';
+    if (score >= 75) return t.weekAnalysis.veryConsistent;
+    if (score >= 40) return t.weekAnalysis.moderate;
+    return t.weekAnalysis.irregular;
   };
 
   const scoreColor = getScoreColor();
@@ -264,7 +278,7 @@ const ConsistencyScore = ({ entries }: { entries: DayEntry[] }) => {
         </View>
 
         <View style={styles.consistencyInfo}>
-          <Text style={[styles.consistencyTitle, typography.headline]}>Consistency</Text>
+          <Text style={[styles.consistencyTitle, typography.headline]}>{t.weekAnalysis.consistency}</Text>
           <View style={[styles.consistencyBadge, { backgroundColor: `${scoreColor}15` }]}>
             <Text style={[styles.consistencyBadgeText, typography.label, { color: scoreColor }]}>
               {getScoreLabel()}
@@ -273,7 +287,7 @@ const ConsistencyScore = ({ entries }: { entries: DayEntry[] }) => {
           <View style={styles.streakRow}>
             <MaterialIcons name="local-fire-department" size={18} color={colors.tertiary} />
             <Text style={[styles.streakText, typography.body]}>
-              {streak} day{streak !== 1 ? 's' : ''} streak
+              {t.weekAnalysis.dayStreak(streak)}
             </Text>
           </View>
         </View>
@@ -285,16 +299,17 @@ const ConsistencyScore = ({ entries }: { entries: DayEntry[] }) => {
 /** Day Notes Feed — shows only days with notes */
 const NotesFeed = ({ entries }: { entries: DayEntry[] }) => {
   const { styles, colors } = useWeekAnalysisStyles();
+  const { t, locale } = useI18n();
   const withNotes = entries.filter((e) => e.note && e.note.trim().length > 0);
 
   if (withNotes.length === 0) {
     return (
       <View style={styles.notesFeedCard}>
-        <Text style={[styles.sectionLabel, typography.label]}>Day Notes</Text>
+        <Text style={[styles.sectionLabel, typography.label]}>{t.weekAnalysis.dayNotes}</Text>
         <View style={styles.notesEmpty}>
           <MaterialIcons name="sticky-note-2" size={28} color={colors.outlineVariant} />
           <Text style={[styles.notesEmptyText, typography.body]}>
-            No notes this week. Add notes when logging hours for them to appear here.
+            {t.weekAnalysis.noNotesThisWeek}
           </Text>
         </View>
       </View>
@@ -303,7 +318,7 @@ const NotesFeed = ({ entries }: { entries: DayEntry[] }) => {
 
   return (
     <View style={styles.notesFeedCard}>
-      <Text style={[styles.sectionLabel, typography.label]}>Day Notes</Text>
+      <Text style={[styles.sectionLabel, typography.label]}>{t.weekAnalysis.dayNotes}</Text>
       {withNotes.map((entry) => {
         const d = new Date(entry.date);
         return (
@@ -315,7 +330,7 @@ const NotesFeed = ({ entries }: { entries: DayEntry[] }) => {
             <View style={styles.noteContent}>
               <View style={styles.noteHeader}>
                 <Text style={[styles.noteDay, typography.label]}>
-                  {d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+                  {d.toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
                 </Text>
                 <Text style={[styles.noteHours, typography.label]}>{formatHM(entry.hours)}</Text>
               </View>
@@ -328,39 +343,71 @@ const NotesFeed = ({ entries }: { entries: DayEntry[] }) => {
   );
 };
 
-/** Goal Pacing Indicator */
+/** Goal Pacing Indicator — based on previous week's hours */
 const GoalPacing = ({
   week,
   entries,
+  previousWeek,
 }: {
   week: WeekData;
   entries: DayEntry[];
+  previousWeek: WeekData | null;
 }) => {
   const { styles, colors } = useWeekAnalysisStyles();
+  const { t } = useI18n();
 
   const totalHours = entries.reduce((s, e) => s + e.hours, 0);
-  const goalHours = week.goalPercentage > 0 ? (totalHours / week.goalPercentage) * 100 : 40; // derive goal or default 40h
-  const pct = goalHours > 0 ? Math.min((totalHours / goalHours) * 100, 100) : 0;
+  const prevHours = previousWeek?.dayEntries?.reduce((s, e) => s + e.hours, 0) ?? 0;
 
-  // Projected: total so far / active days * 7
-  const activeDays = entries.filter((e) => e.hours > 0).length;
-  const totalDays = entries.length || 7;
-  const elapsed = totalDays; // week is fully elapsed if viewing past weeks
-  const projected = activeDays > 0 ? (totalHours / elapsed) * 7 : 0;
-  const projectedDelta = projected - goalHours;
-  const onTrack = projectedDelta >= 0;
+  // If no previous week, show a message instead
+  if (!previousWeek || prevHours <= 0) {
+    return (
+      <View style={styles.pacingCard}>
+        <Text style={[styles.sectionLabel, typography.label]}>{t.weekAnalysis.goalPacing}</Text>
+        <View style={[styles.pacingProjection, { backgroundColor: colors.surfaceContainerLow }]}>
+          <MaterialIcons name="info-outline" size={18} color={colors.onSurfaceVariant} />
+          <Text style={[styles.pacingProjectionText, typography.body, { color: colors.onSurfaceVariant }]}>
+            {t.weekAnalysis.noPreviousWeekPacing}
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  const pct = Math.min((totalHours / prevHours) * 100, 150); // cap at 150% for bar display
+  const delta = totalHours - prevHours;
+  const deltaPct = Math.round((delta / prevHours) * 100);
+
+  // Performance tiers
+  type PerfTier = 'great' | 'good' | 'insufficient';
+  let tier: PerfTier;
+  if (deltaPct >= 0) {
+    tier = 'great';       // matched or exceeded previous week
+  } else if (deltaPct >= -20) {
+    tier = 'good';        // within 20% of previous week
+  } else {
+    tier = 'insufficient'; // more than 20% below
+  }
+
+  const tierConfig = {
+    great:        { color: colors.tertiary, icon: 'rocket-launch' as const, label: t.weekAnalysis.greatPerformance },
+    good:         { color: colors.primary,  icon: 'trending-flat' as const, label: t.weekAnalysis.goodPerformance },
+    insufficient: { color: colors.error,    icon: 'trending-down' as const, label: t.weekAnalysis.insufficientPerformance },
+  };
+
+  const { color: tierColor, icon: tierIcon, label: tierLabel } = tierConfig[tier];
 
   return (
     <View style={styles.pacingCard}>
-      <Text style={[styles.sectionLabel, typography.label]}>Goal Pacing</Text>
+      <Text style={[styles.sectionLabel, typography.label]}>{t.weekAnalysis.goalPacing}</Text>
 
-      {/* Progress bar */}
+      {/* Progress bar (100% = previous week's hours) */}
       <View style={styles.pacingBarContainer}>
         <View style={styles.pacingBarTrack}>
           <View
-            style={[styles.pacingBarFill, { width: `${Math.max(pct, 2)}%` }]}
+            style={[styles.pacingBarFill, { width: `${Math.min(Math.max(pct, 2), 100)}%`, backgroundColor: tierColor }]}
           />
-          {/* Goal marker */}
+          {/* Previous week marker at 100% */}
           <View style={[styles.pacingGoalMarker, { left: '100%' }]}>
             <View style={[styles.pacingGoalLine, { backgroundColor: colors.outlineVariant }]} />
           </View>
@@ -369,20 +416,14 @@ const GoalPacing = ({
 
       <View style={styles.pacingLabels}>
         <Text style={[styles.pacingActual, typography.headline]}>{formatHM(totalHours)}</Text>
-        <Text style={[styles.pacingGoal, typography.body]}>/ {formatHM(goalHours)} goal</Text>
+        <Text style={[styles.pacingGoal, typography.body]}>{t.weekAnalysis.vsPrevWeek(formatHM(prevHours))}</Text>
       </View>
 
-      {/* Projection */}
-      <View style={[styles.pacingProjection, { backgroundColor: onTrack ? `${colors.tertiary}10` : `${colors.error}10` }]}>
-        <MaterialIcons
-          name={onTrack ? 'rocket-launch' : 'warning'}
-          size={18}
-          color={onTrack ? colors.tertiary : colors.error}
-        />
-        <Text style={[styles.pacingProjectionText, typography.body, { color: onTrack ? colors.tertiary : colors.error }]}>
-          {onTrack
-            ? `On track — projected ${formatHM(projected)} by week end`
-            : `Behind pace — projected ${formatHM(projected)}, ${formatHM(Math.abs(projectedDelta))} short`}
+      {/* Performance badge */}
+      <View style={[styles.pacingProjection, { backgroundColor: `${tierColor}10` }]}>
+        <MaterialIcons name={tierIcon} size={18} color={tierColor} />
+        <Text style={[styles.pacingProjectionText, typography.body, { color: tierColor }]}>
+          {tierLabel} ({deltaPct >= 0 ? '+' : ''}{deltaPct}%)
         </Text>
       </View>
     </View>
@@ -404,16 +445,17 @@ const WeekPickerModal = ({
   onClose: () => void;
 }) => {
   const { styles } = useWeekAnalysisStyles();
+  const { t, locale } = useI18n();
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <TouchableOpacity style={styles.weekPickerOverlay} activeOpacity={1} onPress={onClose}>
         <TouchableOpacity activeOpacity={1} style={styles.weekPickerSheet} onPress={() => {}}>
           <View style={styles.weekPickerHandle} />
-          <Text style={[styles.weekPickerTitle, typography.headline]}>Select a Week</Text>
+          <Text style={[styles.weekPickerTitle, typography.headline]}>{t.weekAnalysis.selectAWeek}</Text>
           <ScrollView showsVerticalScrollIndicator={false}>
             {weeks.length === 0 ? (
               <View style={styles.weekPickerEmpty}>
-                <Text style={[styles.weekPickerEmptyText, typography.body]}>No weeks recorded yet.</Text>
+                <Text style={[styles.weekPickerEmptyText, typography.body]}>{t.weekAnalysis.noWeeksRecorded}</Text>
               </View>
             ) : (
               weeks.map((week) => {
@@ -427,11 +469,11 @@ const WeekPickerModal = ({
                   >
                     <View style={styles.weekPickerItemLeft}>
                       <Text style={[styles.weekPickerItemRange, typography.label, isSelected && styles.weekPickerItemRangeSelected]}>
-                        {week.dateRange}
+                        {formatDateRange(week, locale)}
                       </Text>
                       {week.isActive && (
                         <View style={styles.weekPickerItemBadge}>
-                          <Text style={[styles.weekPickerItemBadgeText, typography.label]}>Active</Text>
+                          <Text style={[styles.weekPickerItemBadgeText, typography.label]}>{t.currentWeek.active}</Text>
                         </View>
                       )}
                     </View>
@@ -455,6 +497,7 @@ const WeekPickerModal = ({
 export default function WeekAnalysisScreen() {
   const router = useRouter();
   const { mode, colors, toggleMode } = useAppTheme();
+  const { t, locale } = useI18n();
   const styles = createWeekAnalysisStyles(colors);
   const insets = useSafeAreaInsets();
   const [activeAppTab, setActiveAppTab] = useState<BottomTab>('week-analysis' as BottomTab);
@@ -535,7 +578,7 @@ export default function WeekAnalysisScreen() {
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar barStyle={mode === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
       <TopBar
-        title="Week Analysis"
+        title={t.topBar.weekAnalysis}
         mode={mode}
         onToggleTheme={toggleMode}
         onAvatarPress={() => {}}
@@ -551,9 +594,9 @@ export default function WeekAnalysisScreen() {
       >
         {/* Hero */}
         <View style={styles.heroSection}>
-          <Text style={[styles.heroSubtitle, typography.label]}>Deep Dive</Text>
+          <Text style={[styles.heroSubtitle, typography.label]}>{t.weekAnalysis.deepDive}</Text>
           <Text style={[styles.heroTitle, typography.headline]}>
-            {selectedWeek ? selectedWeek.dateRange : 'Week Analysis'}
+            {selectedWeek ? formatDateRange(selectedWeek, locale) : t.topBar.weekAnalysis}
           </Text>
         </View>
 
@@ -561,7 +604,7 @@ export default function WeekAnalysisScreen() {
           <View style={styles.emptyState}>
             <MaterialIcons name="analytics" size={48} color={colors.outlineVariant} />
             <Text style={[styles.emptyText, typography.body]}>
-              No weekly records found. Create a week on the home screen to see analysis here.
+              {t.weekAnalysis.noRecordsFound}
             </Text>
           </View>
         ) : (
@@ -569,7 +612,7 @@ export default function WeekAnalysisScreen() {
             <WeekComparison current={selectedWeek} previous={previousWeek} />
             <DailyDistribution entries={entries} />
             <ConsistencyScore entries={entries} />
-            <GoalPacing week={selectedWeek} entries={entries} />
+            <GoalPacing week={selectedWeek} entries={entries} previousWeek={previousWeek} />
             <NotesFeed entries={entries} />
           </>
         )}
@@ -585,9 +628,9 @@ export default function WeekAnalysisScreen() {
         activeOpacity={0.75}
       >
         <View style={styles.weekSelectorButtonLeft}>
-          <Text style={[styles.weekSelectorButtonLabel, typography.label]}>Viewing Week</Text>
+          <Text style={[styles.weekSelectorButtonLabel, typography.label]}>{t.weekAnalysis.viewingWeek}</Text>
           <Text style={[styles.weekSelectorButtonRange, typography.headline]}>
-            {selectedWeek ? selectedWeek.dateRange : 'No week selected'}
+            {selectedWeek ? formatDateRange(selectedWeek, locale) : t.weekAnalysis.noWeekSelected}
           </Text>
         </View>
         <MaterialIcons name="keyboard-arrow-up" size={24} color={colors.primary} />
