@@ -1,50 +1,245 @@
-# Welcome to your Expo app 👋
+# ⏱️ Hourly
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A modern mobile time-tracking app built with **React Native, Expo, and TypeScript** for logging weekly hours, reviewing daily progress, and analyzing work patterns across the current week and month. It includes bilingual support, dark/light themes, and import/export tools to move your data between devices.
 
-## Get started
+---
 
-1. Install dependencies
+## ✨ Features
 
+### 📅 Weekly Time Tracking
+- Create week records with a custom start date and **1 to 7 tracked days**
+- Log **hours and minutes per day** with optional notes
+- Edit or delete existing weeks at any time
+- Prevent overlapping date ranges to keep records consistent
+
+### 📊 Productivity Insights
+- **Today dashboard** with live day-progress tracking
+- **Last 5 days summary** generated from saved week data
+- **Week Analysis** with week-over-week comparison, daily distribution, consistency score, streaks, and pacing
+- **Monthly Insights** with totals, daily average, days worked, goal completion, peak day, and 4-week trends
+
+### 🎨 Modern UI/UX
+- Custom mobile-first interface with **light and dark themes**
+- Bottom navigation for quick access to all main sections
+- Gradient and glass-style visual treatments using Expo UI tooling
+- Pull-to-refresh support across analytics screens
+
+### 🌍 Localization & Personalization
+- Built-in **English and Spanish** translations
+- Language switcher available from the profile modal
+- Theme toggle directly in the top bar
+- Device locale detection with persisted language preference
+
+### 🔁 Import, Export, and Sharing
+- Export one week or all weeks as **JSON**
+- Import exported data back into the app
+- Resolve **date conflicts** during import by choosing existing or imported data
+- Share weekly summaries as an image and export JSON files to device storage or share sheets
+
+---
+
+## 🎨 Theming & Localization
+
+### Dark / Light Theme
+- Manual theme toggle from the header
+- Separate theme tokens for surfaces, accents, states, and text
+- Consistent visual language across all tabs
+
+### Multi-language Support
+- English and Spanish translations included
+- Locale is persisted locally with AsyncStorage
+- Device locale is used as the initial default
+
+---
+
+## 📸 Screenshots
+
+Screenshots have not been added to this repository yet. Once you capture them, you can place them here to showcase:
+
+- Today view
+- Current Week management
+- Weekly analysis dashboard
+- Monthly insights dashboard
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js 18 or newer recommended
+- npm
+- Expo-compatible device or simulator
+- Android Emulator, iOS Simulator, or **Expo Go**
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/MichaelX17/Hourly.git
+   cd hourly
+   ```
+
+2. **Install dependencies**
    ```bash
    npm install
    ```
 
-2. Start the app
-
+3. **Start the development server**
    ```bash
    npx expo start
    ```
 
-In the output, you'll find options to open the app in a
+4. **Run on your target platform**
+   ```bash
+   npm run android
+   npm run ios
+   npm run web
+   ```
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+---
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## 🛠️ Technical Stack
 
-## Get a fresh project
+### Core Technologies
+- **React Native** with **Expo SDK 54**
+- **TypeScript** for typed development
+- **Expo Router** for file-based navigation
+- **React 19** and **React Native 0.81**
 
-When you're ready, run:
+### State & Persistence
+- **React Context API** for theming and i18n state
+- **AsyncStorage** for persisted week data and locale preferences
+- Local-first data model with no backend dependency
 
+### Expo & Native Integrations
+- **expo-localization** for language detection
+- **expo-document-picker** for importing JSON backups
+- **expo-file-system** for reading/writing exported files
+- **expo-sharing** for native share flows
+- **react-native-view-shot** for weekly summary image capture
+- **expo-blur** and **expo-linear-gradient** for UI styling
+
+### UI Components
+- Custom **TopBar** with theme and language controls
+- Custom **BottomNav** for primary navigation
+- Reusable tab styling system through centralized theme tokens
+- Material Icons via **@expo/vector-icons**
+
+---
+
+## 📱 Usage Guide
+
+### Tracking a Week
+1. Open **Current Week**
+2. Tap **Add Week**
+3. Choose a start date from the allowed recent range
+4. Select how many days the week should include
+5. Enter hours, minutes, and optional notes for each day
+6. Save the week to update all dashboards automatically
+
+### Reviewing Performance
+- **Today**: view the live day progress and the latest 5 tracked days
+- **Week Analysis**: inspect consistency, streaks, distribution, and comparison with the previous week
+- **Monthly Insights**: review total monthly hours, averages, trends, and peak productivity
+
+### Managing Data
+- Export a single week or all weeks as JSON
+- Import an existing Hourly export file
+- Resolve overlapping imported weeks before saving
+- Share a visual week summary through the device share sheet
+
+---
+
+## 💾 Data Storage & Export Format
+
+### Local Storage
+- Week records are stored locally using AsyncStorage
+- Language preference is also stored locally
+- No account or external backend is required
+
+### Export Payload
+- Export files are JSON documents with app metadata
+- Current structure includes:
+  - `version`
+  - `appName`
+  - `exportDate`
+  - `weeks`
+- Only valid **Hourly** export payloads are accepted on import
+
+---
+
+## 🔮 Future Enhancements
+
+- ⏱️ Active timer-based session tracking
+- ☁️ Cloud sync and cross-device backup
+- 📈 More advanced charts and long-range history
+- 🔔 Smart reminders for missing daily logs
+- 🏷️ Custom categories and billable/non-billable breakdowns
+- 📤 CSV or PDF export options
+
+---
+
+## 🐛 Troubleshooting
+
+### Common Issues
+- **Weeks not appearing**: verify the week was saved successfully and does not overlap an existing date range
+- **Import fails**: ensure the selected file is a valid Hourly JSON export
+- **Analytics show empty state**: confirm there is saved data in local storage
+- **Expo build cache issues**: run `npx expo start -c`
+
+### Platform Notes
+- JSON download behavior differs between Android and iOS because native file handling is platform-specific
+- Some analytics screens intentionally fall back to empty state when storage is unavailable
+
+---
+
+## 👨‍💻 Development
+
+### Available Scripts
 ```bash
-npm run reset-project
+npm run start
+npm run android
+npm run ios
+npm run web
+npm run lint
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### Project Structure
+```text
+app/
+  (tabs)/
+    today.tsx
+    current-week.tsx
+    week-analysis.tsx
+    monthly-insights.tsx
+components/
+  BottomNav.tsx
+i18n/
+  en.ts
+  es.ts
+```
 
-## Learn more
+### Code Style
+- TypeScript-first codebase
+- Functional components with hooks
+- File-based routing with Expo Router
+- Centralized theme and translation layers
 
-To learn more about developing your project with Expo, look at the following resources:
+---
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## 📄 License
 
-## Join the community
+This project is licensed under the MIT License. Add a `LICENSE` file if you want to publish it with an explicit license.
 
-Join our community of developers creating universal apps.
+---
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## 👤 Developed By
+
+**Miguel Farfan**
+- Computer Science Engineer | Frontend / Backend / Mobile / Desktop Developer
+- 📧 mfpersonal777@gmail.com
+- 🌐 [GitHub](https://github.com/MichaelX17)
+- 💼 [LinkedIn](https://linkedin.com/in/miguelfarfan)
+- 💼 [Workana](https://www.workana.com/freelancer/9da9f40c57fe3491650d3ddfdc37af91)
+
+---
