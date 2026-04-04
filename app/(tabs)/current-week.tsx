@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import * as DocumentPicker from 'expo-document-picker';
 import { File as FSFile, Paths } from 'expo-file-system';
-import { StorageAccessFramework } from 'expo-file-system/legacy';
+import { copyAsync, StorageAccessFramework } from 'expo-file-system/legacy';
 import { useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import React, { useEffect, useState } from 'react';
@@ -260,7 +260,16 @@ const WeekViewModal = ({ week, onClose, onAlert }: WeekViewModalProps) => {
       });
       // Ensure URI has file:// scheme (captureRef may return a raw path in APK builds)
       const fileUri = uri.startsWith('file://') ? uri : `file://${uri}`;
-      await Sharing.shareAsync(fileUri, { mimeType: 'image/png' });
+      const now = new Date();
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      const fileName = `Hourly-${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${now.getFullYear()}.png`;
+      const destinationUri = `${Paths.cache.uri}${fileName}`;
+      await copyAsync({ from: fileUri, to: destinationUri });
+      await Sharing.shareAsync(destinationUri, {
+        mimeType: 'image/png',
+        dialogTitle: 'Compartir resumen semanal',
+        UTI: 'public.png',
+      });
     } catch {
       onAlert(t.currentWeek.error, t.currentWeek.couldNotShareSummary, 'error');
     } finally {

@@ -178,31 +178,32 @@ type WeekBarData = {
 
 const generateWeeklyData = (rawWeeks: WeekData[], colors: any, locale: string = 'en'): WeekBarData[] => {
   const today = new Date();
-  const currentMonth = today.getMonth();
-  const currentYear = today.getFullYear();
+  today.setHours(0, 0, 0, 0);
 
-  // Build week-hours map counting only days in the current month
-  const weekHours: { [key: number]: number } = {};
-  rawWeeks.forEach(week => {
-    if (week.dayEntries) {
-      week.dayEntries.forEach(entry => {
-        const [y, m, d] = entry.date.split('-').map(Number);
-        if (m - 1 !== currentMonth || y !== currentYear) return;
-        const entryDate = new Date(y, m - 1, d);
-        const weekNum = getWeekNumber(entryDate);
-        weekHours[weekNum] = (weekHours[weekNum] || 0) + entry.hours;
-      });
-    }
-  });
+  // Use the Monday of the current week as anchor
+  const currentMonday = getWeekMonday(today);
 
-  // Get last 4 weeks with real date labels
+  // Build 4 week ranges (Mon–Sun) and sum hours per range
   const weeks: WeekBarData[] = [];
   for (let i = 3; i >= 0; i--) {
-    const weekDate = new Date(today);
-    weekDate.setDate(today.getDate() - (i * 7));
-    const weekNum = getWeekNumber(weekDate);
-    const hours = weekHours[weekNum] || 0;
-    const monday = getWeekMonday(weekDate);
+    const monday = new Date(currentMonday);
+    monday.setDate(currentMonday.getDate() - i * 7);
+    const nextMonday = new Date(monday);
+    nextMonday.setDate(monday.getDate() + 7);
+
+    let hours = 0;
+    rawWeeks.forEach(week => {
+      if (week.dayEntries) {
+        week.dayEntries.forEach(entry => {
+          const [y, m, d] = entry.date.split('-').map(Number);
+          const entryDate = new Date(y, m - 1, d);
+          if (entryDate >= monday && entryDate < nextMonday) {
+            hours += entry.hours;
+          }
+        });
+      }
+    });
+
     weeks.push({
       label: formatWeekLabel(monday, locale),
       hours,
